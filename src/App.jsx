@@ -52,9 +52,15 @@ const GLOBAL_CSS = `
   @keyframes fillFromBottom { from { height: 0%; } to { } }
   @keyframes shimmerSkill { 0% { filter: brightness(1); } 50% { filter: brightness(1.6) drop-shadow(0 0 12px rgba(212,168,67,0.6)); } 100% { filter: brightness(1); } }
   @keyframes countUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .insight-flip-card:hover .insight-flip-inner { transform: rotateY(180deg); }
   @keyframes ambientGlow { 0%,100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.05); } }
   @keyframes glowPulseStatic { 0%,100% { opacity: 0.2; } 50% { opacity: 0.6; } }
   @keyframes pulseNode { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+  @keyframes electricPulse { 0% { stroke-dashoffset: 0; opacity: 0.6; } 25% { opacity: 0.9; } 50% { stroke-dashoffset: -1000; opacity: 0.6; } 75% { opacity: 0.9; } 100% { stroke-dashoffset: 0; opacity: 0.6; } }
+  @keyframes emitFromCenter { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.3); filter: blur(4px); } 60% { filter: blur(0px); } 100% { opacity: 1; transform: translate(-50%,-50%) scale(1); filter: blur(0px); } }
+  @keyframes sealBreak { 0% { transform: scale(1) rotate(0); opacity: 1; } 50% { transform: scale(1.2) rotate(15deg); opacity: 0.6; } 100% { transform: scale(0.3) rotate(45deg); opacity: 0; } }
+  @keyframes slideUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-40px); opacity: 0; } }
+  @keyframes receiptLine { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
 
   .animate-fade-up   { animation: fadeUp 0.7s ease forwards; }
   .animate-fade-up-1 { animation: fadeUp 0.7s 0.1s ease forwards; opacity:0; }
@@ -412,19 +418,18 @@ function analyseConnections(rows) {
 
   // Insights
   const insights = [];
-  if (concentration>65) insights.push({type:"warning", headline:"High concentration risk", body:`${concentration}% of your network sits in ${topInd[0][0]}. A single-sector network is fragile — and limits your reach.`});
-  else if (concentration<35) insights.push({type:"positive", headline:"Well diversified", body:`No single industry dominates your network. You have genuine cross-sector reach — a real strategic asset.`});
-  else insights.push({type:"neutral", headline:"Moderate concentration", body:`${topInd[0][0]} leads at ${concentration}%. Healthy, but worth asking if that's by design or default.`});
+  if (concentration>65) insights.push({type:"warning", headline:"High concentration risk", body:`Your network sits in ${topInd[0][0]}. A single-sector network is fragile — and limits your reach.`, stat: concentration, statSuffix: "%", vizType: "arc", vizMax: 100});
+  else if (concentration<35) insights.push({type:"positive", headline:"Well diversified", body:`No single industry dominates. You have genuine cross-sector reach — a real strategic asset.`, stat: concentration, statSuffix: "%", vizType: "arc", vizMax: 100});
+  else insights.push({type:"neutral", headline:"Moderate concentration", body:`${topInd[0][0]} leads. Healthy, but worth asking if that's by design or default.`, stat: concentration, statSuffix: "%", vizType: "arc", vizMax: 100});
 
-  if (execPct<10) insights.push({type:"warning", headline:"Thin at the top", body:`Only ${execPct}% of connections are C-Suite or VP level. Senior relationships compound — they refer, champion, and open doors disproportionately.`});
-  else if (execPct>25) insights.push({type:"positive", headline:"Strong senior reach", body:`${execPct}% of your network is C-Suite or VP — well above average. You have the relationships that move things.`});
-  else insights.push({type:"neutral", headline:"Mixed seniority", body:`${execPct}% executive-level connections. Building more senior relationships would increase leverage significantly.`});
+  if (execPct<10) insights.push({type:"warning", headline:"Thin at the top", body:`C-Suite or VP level. Senior relationships compound — they refer, champion, and open doors disproportionately.`, stat: execPct, statSuffix: "%", vizType: "arc", vizMax: 100});
+  else if (execPct>25) insights.push({type:"positive", headline:"Strong senior reach", body:`C-Suite or VP — well above average. You have the relationships that move things.`, stat: execPct, statSuffix: "%", vizType: "arc", vizMax: 100});
+  else insights.push({type:"neutral", headline:"Mixed seniority", body:`Executive-level connections. Building more senior relationships would increase leverage.`, stat: execPct, statSuffix: "%", vizType: "arc", vizMax: 100});
 
-  if (growthPct!==null && growthPct<-25) insights.push({type:"warning", headline:"Network momentum stalling", body:`Connection rate down ${Math.abs(growthPct)}% year-on-year. Your network may be plateauing just as your audience needs to grow.`});
-  else if (growthPct!==null && growthPct>30) insights.push({type:"positive", headline:"Strong momentum", body:`Up ${growthPct}% on last year. You're in a building phase — the compounding effects will show in 12–18 months.`});
-  else insights.push({type:"neutral", headline:"Steady growth", body:`${recent12} new connections in the last year. ${growthPct!==null ? `${growthPct>0?"+":""}${growthPct}% vs the prior year.` : ""}`});
+  if (growthPct!==null && growthPct<-25) insights.push({type:"warning", headline:"Network momentum stalling", body:`Connection rate down year-on-year. Your network may be plateauing.`, stat: Math.abs(growthPct), statPrefix: "-", statSuffix: "%", subStat: `${recent12} new this year`, vizType: "delta"});
+  else if (growthPct!==null && growthPct>30) insights.push({type:"neutral", headline:"Strong momentum", body:`You're in a building phase — the compounding effects will show in 12–18 months.`, stat: growthPct, statPrefix: "+", statSuffix: "%", subStat: `${recent12} new this year`, vizType: "delta"});
+  else insights.push({type:"neutral", headline:"Steady growth", body:`${growthPct!==null ? `${growthPct>0?"+":""}${growthPct}% vs the prior year.` : "Consistent networking pace."}`, stat: recent12, statSuffix: "", subStat: "new this year", vizType: "delta", delta: growthPct});
 
-  if (gaps.length>0) insights.push({type:"neutral", headline:"Structural gaps", body:`Near-zero presence in: ${gaps.slice(0,3).join(", ")}. Whether these matter depends on your goals — but blind spots are worth naming.`});
 
   // Full year-by-year history
   const yearHistory = Object.entries(yearMap).sort((a,b) => parseInt(a[0])-parseInt(b[0]));
@@ -470,13 +475,13 @@ function analyseConnections(rows) {
 
   // Peak year insight
   if (peakYear && peakYear[1] > 200) {
-    insights.push({type:"neutral", headline:"Peak networking year", body:`${peakYear[0]} was your biggest year with ${peakYear[1].toLocaleString()} new connections. Understanding what drove that spike could help you replicate it.`});
+    insights.push({type:"neutral", headline:"Peak networking year", body:`Your biggest year with ${peakYear[1].toLocaleString()} new connections. Understanding what drove that spike could help you replicate it.`, stat: peakYear[0], statIsText: true, vizType: "sparkline", sparkData: yearHistory});
   }
 
   // Seasonality insight
   const bestMonth = seasonality.reduce((a,b) => b.count>a.count?b:a);
   const worstMonth = seasonality.reduce((a,b) => b.count<a.count?b:a);
-  insights.push({type:"neutral", headline:"Seasonal pattern", body:`Your network grows fastest in ${bestMonth.month} and slowest in ${worstMonth.month}. Most of your connecting happens on weekdays (${weekdayPct}%).`});
+  insights.push({type:"neutral", headline:"Seasonal pattern", body:`Fastest in ${bestMonth.month}, slowest in ${worstMonth.month}. ${weekdayPct}% on weekdays.`, stat: bestMonth.month, statIsText: true, vizType: "monthBars", monthData: seasonality});
 
   // Benchmarks
   const bench = {
@@ -491,10 +496,19 @@ function analyseConnections(rows) {
   const notable = countNotableCompanies(allCompanies);
 
   // Benchmark insights
-  if (bench.connectionsPct >= 90) insights.push({type:"positive", headline:"Network size — elite tier", body:`With ${total.toLocaleString()} connections you're in the top ${100 - bench.connectionsPct}% of LinkedIn users. The platform median is just ${BENCHMARKS.connections.median.toLocaleString()}.`});
-  else if (bench.connectionsPct >= 75) insights.push({type:"positive", headline:"Network size — above average", body:`${total.toLocaleString()} connections puts you in the top ${100 - bench.connectionsPct}% of LinkedIn users (median: ${BENCHMARKS.connections.median.toLocaleString()}).`});
+  if (bench.connectionsPct >= 90) insights.push({type:"gold", headline:"Network size — elite tier", body:`Top ${100 - bench.connectionsPct}% of LinkedIn users. Platform median is just ${BENCHMARKS.connections.median.toLocaleString()}.`, stat: total, statSuffix: "", vizType: "percentile", pct: bench.connectionsPct, median: BENCHMARKS.connections.median});
+  else if (bench.connectionsPct >= 75) insights.push({type:"positive", headline:"Network size — above average", body:`Top ${100 - bench.connectionsPct}% of LinkedIn users (median: ${BENCHMARKS.connections.median.toLocaleString()}).`, stat: total, statSuffix: "", vizType: "percentile", pct: bench.connectionsPct, median: BENCHMARKS.connections.median});
 
-  if (notable.count >= 5) insights.push({type:"positive", headline:"Blue-chip network", body:`You have connections at ${notable.count} notable companies including ${notable.matched.slice(0,3).join(", ")}. These are high-signal relationships.`});
+  if (notable.count >= 5) insights.push({type:"positive", headline:"Blue-chip network", body:`High-signal relationships at notable companies.`, stat: notable.count, statSuffix: "", subStat: "notable companies", vizType: "pills", pills: notable.matched.slice(0,3)});
+
+  // Sort insights into desired display order and mark Network Size as full-width
+  const insightOrder = ["network size", "diversi", "blue-chip", "senior", "peak", "seasonal", "growth", "momentum", "stalling", "concentration", "structural", "thin"];
+  insights.sort((a, b) => {
+    const aIdx = insightOrder.findIndex(k => a.headline.toLowerCase().includes(k));
+    const bIdx = insightOrder.findIndex(k => b.headline.toLowerCase().includes(k));
+    return (aIdx === -1 ? 99 : aIdx) - (bIdx === -1 ? 99 : bIdx);
+  });
+  insights.forEach(ins => { if (ins.headline.toLowerCase().includes("network size")) ins.fullWidth = true; });
 
   return { total, industries, seniorities, yearMap, monthMap, last24, topInd, topCompanies, concentration, networkAge, firstYear, execPct, recent12, prev12, growthPct, score, insights, gaps, yearHistory, seasonality, weekdayOrdered, weekdayPct, dormant: dormant.length, peakYear, bench, notable };
 }
@@ -1114,8 +1128,8 @@ function SparkBar({ value, max, color="#d4a843", delay=0, label, count, total })
   return (
     <div style={{marginBottom:14}}>
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,alignItems:"baseline"}}>
-        <span style={{fontSize:12,color:"var(--text)"}}>{label}</span>
-        <span style={{fontSize:10,color:"var(--muted)"}}>{count.toLocaleString()} <span style={{color}}>{sharePct}%</span></span>
+        <span style={{fontSize: 13,color:"var(--text)"}}>{label}</span>
+        <span style={{fontSize: 11,color:"var(--muted)"}}>{count.toLocaleString()} <span style={{color}}>{sharePct}%</span></span>
       </div>
       <div style={{height:3,background:"var(--faint)",borderRadius:2,overflow:"hidden"}}>
         <div style={{height:"100%",width:`${pct}%`,background:color,borderRadius:2,transformOrigin:"left",animation:`barGrowH 0.8s ${delay}s cubic-bezier(0.22,1,0.36,1) forwards`,transform:"scaleX(0)"}} />
@@ -1173,7 +1187,7 @@ function RadialSegments({ industries, total }) {
           <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
             <div style={{width:8,height:8,borderRadius:"50%",background:s.color,flexShrink:0}}/>
             <div style={{fontSize:11,color:"var(--text)",flex:1}}>{s.label}</div>
-            <div style={{fontSize:10,color:"var(--muted)"}}>{Math.round(s.frac*100)}%</div>
+            <div style={{fontSize: 11,color:"var(--muted)"}}>{Math.round(s.frac*100)}%</div>
           </div>
         ))}
       </div>
@@ -1195,7 +1209,7 @@ function ScoreHex({ score }) {
         <text x={cx} y={cy-8} textAnchor="middle" fill={gc} fontSize="36" fontFamily="Playfair Display,serif" fontWeight="700">{g}</text>
         <text x={cx} y={cy+14} textAnchor="middle" fill="var(--muted)" fontSize="10" fontFamily="Space Mono" letterSpacing="2">{score}/100</text>
       </svg>
-      <div style={{fontSize:12,color:gc,letterSpacing:"0.15em",marginTop:-8}}>{gl.toUpperCase()}</div>
+      <div style={{fontSize: 13,color:gc,letterSpacing:"0.15em",marginTop:-8}}>{gl.toUpperCase()}</div>
     </div>
   );
 }
@@ -1345,33 +1359,33 @@ function Upload({ onDrop, dragOver, setDragOver, fileRef, process, error }) {
       </div>
       <div style={{position:"relative",zIndex:1}}>
         <div className="animate-fade-up" style={{marginBottom:8}}>
-          <span style={{fontSize:10,letterSpacing:"0.25em",color:"var(--gold)",borderBottom:"1px solid var(--gold-dim)",paddingBottom:2}}>LINKEDIN NETWORK INTELLIGENCE</span>
+          <span style={{fontSize: 11,letterSpacing:"0.25em",color:"var(--gold)",borderBottom:"1px solid var(--gold-dim)",paddingBottom:2}}>CAREERPRINT.AI</span>
         </div>
         <h1 className="serif animate-fade-up-1" style={{fontSize:"clamp(32px,5vw,52px)",fontWeight:400,lineHeight:1.1,margin:"16px 0 12px"}}>
           LinkedIn has been<br/>studying you for years.<br/><em style={{color:"var(--gold)"}}>Now return the favour.</em>
         </h1>
-        <p className="animate-fade-up-2" style={{color:"var(--muted)",fontSize:14,lineHeight:1.8,marginBottom:36,maxWidth:520}}>
+        <p className="animate-fade-up-2" style={{color:"var(--muted)",fontSize: 13,lineHeight:1.8,marginBottom:36,maxWidth:520}}>
           Upload your LinkedIn data export and discover what your network really says about you — concentration risks, seniority gaps, growth momentum, and how LinkedIn has categorised you for advertisers.
         </p>
         <div className={`drop-zone animate-fade-up-3 ${dragOver?"over":""}`}
           style={{padding:"48px 40px",textAlign:"center",marginBottom:16}}
           onDrop={onDrop} onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)}
           onClick={()=>fileRef.current.click()}>
-          <div className="upload-icon" style={{fontSize:28,marginBottom:12}}>↑</div>
-          <div className="serif" style={{fontSize:20,marginBottom:6}}>Drop your export here</div>
-          <div style={{fontSize:10,color:"var(--muted)",letterSpacing:"0.15em"}}>CONNECTIONS.CSV · OR FULL ZIP ARCHIVE</div>
+          <div className="upload-icon" style={{fontSize: 32,marginBottom:12}}>↑</div>
+          <div className="serif" style={{fontSize: 22,marginBottom:6}}>Drop your export here</div>
+          <div style={{fontSize: 11,color:"var(--muted)",letterSpacing:"0.15em"}}>CONNECTIONS.CSV · OR FULL ZIP ARCHIVE</div>
           <input ref={fileRef} type="file" accept=".csv,.zip" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(f)process(f);}}/>
         </div>
-        {error && <div style={{padding:"12px 16px",background:"rgba(232,96,96,0.08)",border:"1px solid rgba(232,96,96,0.25)",color:"var(--rose)",fontSize:12,marginBottom:16,lineHeight:1.6}}>{error}</div>}
+        {error && <div style={{padding:"12px 16px",background:"rgba(232,96,96,0.08)",border:"1px solid rgba(232,96,96,0.25)",color:"var(--rose)",fontSize: 13,marginBottom:16,lineHeight:1.6}}>{error}</div>}
         <div className="card animate-fade-up-4" style={{padding:24,marginBottom:16}}>
-          <div style={{fontSize:10,letterSpacing:"0.2em",color:"var(--gold)",marginBottom:14}}>HOW TO GET YOUR DATA</div>
-          <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"10px 16px",fontSize:12,color:"var(--muted)",lineHeight:1.6}}>
+          <div style={{fontSize: 11,letterSpacing:"0.2em",color:"var(--gold)",marginBottom:14}}>HOW TO GET YOUR DATA</div>
+          <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"10px 16px",fontSize: 13,color:"var(--muted)",lineHeight:1.6}}>
             {[["01","Go to LinkedIn → Settings & Privacy"],["02","Data Privacy → Get a copy of your data"],["03","Select 'Download larger data archive' → Request"],["04","Upload the zip file you receive by email"]].map(([n,t],i)=>(
               <><span key={`n${i}`} style={{color:"var(--gold-dim)",fontWeight:700}}>{n}</span><span key={`t${i}`} style={{color:i===3?"var(--gold)":"var(--text)"}}>{t}</span></>
             ))}
           </div>
         </div>
-        <div className="animate-fade-up-5" style={{display:"flex",gap:24,fontSize:10,color:"var(--muted)",letterSpacing:"0.08em",flexWrap:"wrap"}}>
+        <div className="animate-fade-up-5" style={{display:"flex",gap:24,fontSize: 11,color:"var(--muted)",letterSpacing:"0.08em",flexWrap:"wrap"}}>
           <span>🔒 Runs entirely in your browser</span>
           <span>⚡ No data stored or transmitted</span>
           <span>📁 Works with full zip or just Connections.csv</span>
@@ -1393,7 +1407,7 @@ function Analysing() {
         <div style={{position:"absolute",inset:0,border:"1px solid transparent",borderRight:"1px solid var(--gold-dim)",borderRadius:"50%",animation:"spin 2s linear infinite reverse"}}/>
       </div>
       <div style={{textAlign:"center"}}>
-        <div className="serif" style={{fontSize:24,fontWeight:400,marginBottom:8}}>Mapping your network</div>
+        <div className="serif" style={{fontSize: 22,fontWeight:400,marginBottom:8}}>Mapping your network</div>
         <div style={{fontSize:11,color:"var(--gold)",letterSpacing:"0.15em",animation:"pulse 1s ease infinite"}}>{steps[step]}</div>
       </div>
     </div>
@@ -1451,6 +1465,256 @@ function Icon({ name, size = 14, color, style = {} }) {
   );
 }
 
+// ─── Career Journey Map ──────────────────────────────────────────────────────
+const CITY_COORDS = {
+  "london":[51.5,-0.1],"new york":[40.7,-74],"san francisco":[37.8,-122.4],"los angeles":[34.1,-118.2],"chicago":[41.9,-87.6],"toronto":[43.7,-79.4],"sydney":[-33.9,151.2],"melbourne":[-37.8,145],"singapore":[1.35,103.8],"hong kong":[22.3,114.2],"tokyo":[35.7,139.7],"dubai":[25.2,55.3],"mumbai":[19.1,72.9],"bangalore":[12.97,77.6],"delhi":[28.6,77.2],"shanghai":[31.2,121.5],"beijing":[39.9,116.4],"berlin":[52.5,13.4],"paris":[48.9,2.35],"amsterdam":[52.4,4.9],"dublin":[53.3,-6.3],"manchester":[53.5,-2.2],"birmingham":[52.5,-1.9],"edinburgh":[55.95,-3.2],"glasgow":[55.9,-4.3],"bristol":[51.45,-2.6],"leeds":[53.8,-1.5],"liverpool":[53.4,-3],"cardiff":[51.5,-3.2],"belfast":[54.6,-5.9],"boston":[42.4,-71.1],"seattle":[47.6,-122.3],"austin":[30.3,-97.7],"denver":[39.7,-105],"atlanta":[33.7,-84.4],"miami":[25.8,-80.2],"washington":[38.9,-77],"dallas":[32.8,-96.8],"houston":[29.8,-95.4],"phoenix":[33.4,-112],"philadelphia":[40,-75.2],"munich":[48.1,11.6],"frankfurt":[50.1,8.7],"zurich":[47.4,8.5],"geneva":[46.2,6.1],"milan":[45.5,9.2],"rome":[41.9,12.5],"madrid":[40.4,-3.7],"barcelona":[41.4,2.2],"lisbon":[38.7,-9.1],"stockholm":[59.3,18.1],"copenhagen":[55.7,12.6],"oslo":[59.9,10.8],"helsinki":[60.2,24.9],"vienna":[48.2,16.4],"brussels":[50.8,4.4],"prague":[50.1,14.4],"warsaw":[52.2,21],"budapest":[47.5,19.1],"cape town":[-34,18.4],"johannesburg":[-26.2,28],"nairobi":[-1.3,36.8],"lagos":[6.5,3.4],"cairo":[30,31.2],"sao paulo":[-23.5,-46.6],"buenos aires":[-34.6,-58.4],"mexico city":[19.4,-99.1],"bogota":[4.7,-74.1],"santiago":[-33.4,-70.6],"lima":[-12,-77],"vancouver":[49.3,-123.1],"montreal":[45.5,-73.6],"calgary":[51.1,-114.1],"ottawa":[45.4,-75.7],"auckland":[-36.8,174.8],"perth":[-31.95,115.9],"brisbane":[-27.5,153],"kuala lumpur":[3.1,101.7],"bangkok":[13.8,100.5],"jakarta":[-6.2,106.8],"manila":[14.6,121],"seoul":[37.6,127],"taipei":[25,121.5],"tel aviv":[32.1,34.8],"riyadh":[24.7,46.7],"doha":[25.3,51.5],"abu dhabi":[24.45,54.65],
+  // UK specific
+  "greater london":[51.5,-0.1],"london area":[51.5,-0.1],"greater manchester":[53.5,-2.2],"west midlands":[52.5,-1.9],"west yorkshire":[53.8,-1.5],"south east england":[51.2,-0.5],"south west england":[51,-2.5],"east midlands":[52.8,-1.2],"north west england":[53.8,-2.6],"north east england":[54.9,-1.6],"scotland":[56,-4],"wales":[52.1,-3.6],"northern ireland":[54.6,-6.5],
+  "surrey":[51.3,-0.4],"kent":[51.2,0.7],"essex":[51.7,0.5],"hertfordshire":[51.8,-0.2],"berkshire":[51.4,-1.1],"oxfordshire":[51.8,-1.3],"cambridgeshire":[52.2,0.1],"norfolk":[52.6,1.2],"suffolk":[52.2,1.1],"devon":[50.7,-3.5],"cornwall":[50.3,-5],"somerset":[51.1,-2.9],"hampshire":[51.1,-1.3],"dorset":[50.7,-2.3],"wiltshire":[51.3,-1.9],"gloucestershire":[51.8,-2.2],
+  // France
+  "fontainebleau":[48.4,2.7],"île-de-france":[48.8,2.3],"ile-de-france":[48.8,2.3],"lyon":[45.8,4.8],"marseille":[43.3,5.4],"toulouse":[43.6,1.4],"nice":[43.7,7.3],"nantes":[47.2,-1.6],"strasbourg":[48.6,7.8],"bordeaux":[44.8,-0.6],"lille":[50.6,3.1],
+  // Australia
+  "perth":[-31.95,115.9],"adelaide":[-34.9,138.6],"canberra":[-35.3,149.1],"hobart":[-42.9,147.3],"gold coast":[-28,153.4],"newcastle":[-32.9,151.8],
+};
+
+function geocodeLocation(loc) {
+  if (!loc) return null;
+  const lower = loc.toLowerCase().replace(/,?\s*(united kingdom|uk|england|usa|us|united states|australia|canada)$/i, "").trim();
+  // Try exact match
+  if (CITY_COORDS[lower]) return CITY_COORDS[lower];
+  // Try partial — check if any key is contained in the location or vice versa
+  for (const [key, coords] of Object.entries(CITY_COORDS)) {
+    if (lower.includes(key) || key.includes(lower)) return coords;
+  }
+  // Try splitting on comma and matching first part
+  const parts = lower.split(",").map(s => s.trim());
+  for (const part of parts) {
+    if (CITY_COORDS[part]) return CITY_COORDS[part];
+    for (const [key, coords] of Object.entries(CITY_COORDS)) {
+      if (part.includes(key) || key.includes(part)) return coords;
+    }
+  }
+  return null;
+}
+
+// Mercator projection
+function project(lat, lon, w, h, padX = 40, padY = 40) {
+  const x = padX + ((lon + 180) / 360) * (w - 2 * padX);
+  const latRad = (lat * Math.PI) / 180;
+  const mercY = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+  const y = padY + (0.5 - mercY / (2 * Math.PI)) * (h - 2 * padY);
+  return [x, y];
+}
+
+function CareerMap({ positions }) {
+  if (!positions || positions.length === 0) return null;
+
+  // Build all stops chronologically (positions are newest-first)
+  const allStops = [];
+  for (let i = positions.length - 1; i >= 0; i--) {
+    const p = positions[i];
+    const loc = p["Location"] || "";
+    const coords = loc && loc.toLowerCase() !== "global" ? geocodeLocation(loc) : null;
+    const started = p["Started On"] || "";
+    const finished = p["Finished On"] || "Present";
+    const startYear = started ? parseInt(started.split(" ").pop()) || 0 : 0;
+    allStops.push({
+      lat: coords ? coords[0] : null, lon: coords ? coords[1] : null,
+      title: p["Title"] || "", company: p["Company Name"] || "",
+      location: loc || "—", started, finished, startYear,
+      isGlobal: loc.toLowerCase() === "global",
+      hasCoords: !!coords,
+    });
+  }
+  if (allStops.length === 0) return null;
+
+  // Compute bounding box from geocoded points
+  const geoStops = allStops.filter(s => s.hasCoords);
+  const W = 900, H = 450;
+  const pad = 60;
+
+  // Custom projection that fits to data bounds (or falls back to Europe-centered)
+  let projectFn;
+  // Start from data points, add generous padding so continent outlines are visible
+  const baseBounds = geoStops.length > 0
+    ? { minLat: Math.min(...geoStops.map(s => s.lat)), maxLat: Math.max(...geoStops.map(s => s.lat)),
+        minLon: Math.min(...geoStops.map(s => s.lon)), maxLon: Math.max(...geoStops.map(s => s.lon)) }
+    : { minLat: 35, maxLat: 62, minLon: -12, maxLon: 20 }; // fallback: Western Europe
+  // Add padding — more generous for wider spreads
+  const latSpan = baseBounds.maxLat - baseBounds.minLat;
+  const lonSpan = baseBounds.maxLon - baseBounds.minLon;
+  const latPad = Math.max(12, latSpan * 0.35);
+  const lonPad = Math.max(20, lonSpan * 0.25);
+  baseBounds.minLat -= latPad;
+  baseBounds.maxLat += latPad;
+  baseBounds.minLon -= lonPad;
+  baseBounds.maxLon += lonPad;
+  projectFn = (lat, lon) => {
+    const x = pad + ((lon - baseBounds.minLon) / (baseBounds.maxLon - baseBounds.minLon)) * (W - 2 * pad);
+    const y = pad + ((baseBounds.maxLat - lat) / (baseBounds.maxLat - baseBounds.minLat)) * (H - 2 * pad);
+    return [x, y];
+  };
+
+  // Simplified world continent outlines (lat/lon pairs) for background map
+  const coastlines = [
+    // North America
+    [[60,-140],[64,-139],[70,-140],[72,-120],[70,-100],[65,-85],[60,-78],[52,-67],[47,-60],[44,-66],[42,-70],[40,-74],[30,-81],[25,-80],[25,-97],[20,-105],[15,-92],[15,-87],[18,-88],[21,-87],[21,-90],[30,-90],[29,-95],[26,-97],[32,-117],[34,-120],[37,-122],[40,-124],[48,-124],[50,-128],[55,-133],[60,-140]],
+    // South America
+    [[-5,-80],[-2,-80],[7,-77],[12,-72],[12,-62],[8,-60],[7,-52],[2,-50],[-2,-44],[-8,-35],[-13,-39],[-18,-40],[-23,-41],[-28,-49],[-34,-53],[-36,-57],[-40,-62],[-42,-64],[-46,-67],[-50,-68],[-53,-70],[-55,-68],[-54,-64],[-48,-65],[-42,-63],[-38,-57],[-33,-52],[-23,-43],[-22,-40],[-17,-36],[-12,-37],[-5,-35],[-1,-50],[2,-53],[6,-57],[8,-60],[12,-68],[10,-72],[7,-77],[-5,-80]],
+    // Europe
+    [[36,-6],[37,-2],[38,0],[40,0],[42,3],[43,5],[44,8],[44,12],[41,13],[40,15],[38,16],[37,15],[36,13],[35,24],[38,24],[38,27],[40,26],[41,29],[43,28],[45,14],[46,14],[47,7],[48,8],[50,4],[51,2],[51,4],[53,5],[54,9],[55,9],[56,8],[57,10],[58,12],[60,5],[62,5],[65,14],[69,16],[71,25],[70,28],[65,30],[60,28],[60,30],[59,18],[56,13],[55,13],[54,14],[54,20],[55,24],[56,21],[58,28],[56,28],[55,27],[54,23],[54,14],[50,14],[48,17],[47,19],[44,15],[42,19],[40,20],[40,23],[38,24]],
+    // Africa
+    [[36,10],[37,10],[37,11],[35,0],[36,-6],[33,-8],[28,-13],[22,-17],[15,-17],[12,-16],[5,-5],[5,2],[4,10],[6,2],[2,10],[4,10],[0,10],[-5,12],[-6,39],[-11,40],[-15,41],[-25,35],[-34,18],[-34,26],[-30,31],[-26,33],[-15,41],[-11,40],[-6,39],[-1,42],[2,45],[10,45],[12,51],[15,42],[12,44],[11,42],[13,48],[15,40],[20,37],[22,37],[25,34],[30,33],[32,32],[33,35],[35,36],[37,11],[37,10]],
+    // Asia
+    [[42,29],[41,36],[37,36],[33,35],[30,33],[25,34],[20,38],[13,45],[12,51],[10,52],[2,45],[-1,42],[-6,39],[-5,12],[0,10],[2,10],[4,10],[6,2],[5,-5],[5,2],[4,10],[8,0],[5,10],[10,10],[5,40],[8,45],[10,52],[15,55],[22,59],[25,62],[25,66],[22,70],[21,73],[18,73],[17,78],[8,77],[6,80],[1,104],[2,106],[5,105],[10,106],[12,109],[20,106],[22,114],[26,120],[30,122],[35,129],[38,125],[35,127],[34,130],[38,130],[40,130],[42,132],[44,135],[46,143],[51,141],[54,137],[53,140],[60,163],[65,170],[68,180],[72,180],[72,130],[70,135],[65,140],[60,160],[58,163],[56,160],[60,145],[60,130],[55,135],[50,130],[47,140],[45,133],[40,130],[35,120],[30,105],[28,95],[28,85],[30,80],[23,70],[25,63],[25,55],[30,48],[35,36],[40,44],[40,50],[45,52],[52,55],[55,55],[55,68],[62,70],[65,68],[65,75],[68,70],[70,60],[72,55],[67,50],[60,42],[57,38],[54,30],[43,28],[42,29]],
+    // Australia
+    [[-12,131],[-12,136],[-15,136],[-14,141],[-18,140],[-17,146],[-20,149],[-24,152],[-28,153],[-33,152],[-37,150],[-39,146],[-39,144],[-37,140],[-35,137],[-35,135],[-32,133],[-32,131],[-31,115],[-22,114],[-20,119],[-15,129],[-12,131]],
+    // Great Britain (small but iconic)
+    [[50,-5],[50.5,-3.5],[51,1],[52,2],[53,0],[54,-1],[55,-2],[56,-3],[57,-2],[58,-3],[58,-5],[57,-6],[56,-5.5],[55,-5],[54,-5],[54,-3],[53,-3],[52.5,-4.5],[51.5,-5],[50.5,-5],[50,-5]],
+    // Japan
+    [[31,131],[33,130],[34,132],[35,135],[35,137],[36,140],[38,140],[40,140],[41,140],[43,145],[45,142],[43,141],[40,140],[36,140],[35,137],[35,135],[34,132],[33,131],[31,131]],
+    // Indonesia / SE Asia islands
+    [[-6,106],[-7,106],[-8,110],[-8,114],[-7,115],[-6,110],[-6,106]],
+    [[-2,100],[-1,104],[1,104],[2,106],[1,109],[0,109],[-1,104],[-2,100]],
+    // New Zealand
+    [[-35,174],[-37,175],[-38,177],[-41,175],[-42,172],[-44,169],[-46,167],[-46,170],[-44,172],[-42,174],[-39,178],[-37,176],[-35,174]],
+  ];
+
+  // Compute unique geocoded locations for dots
+  const seen = new Set();
+  const uniqueGeo = [];
+  for (const s of allStops) {
+    if (!s.hasCoords) continue;
+    const key = `${s.lat},${s.lon}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const xy = projectFn(s.lat, s.lon);
+    // Collect all roles at this location
+    const roles = allStops.filter(r => r.hasCoords && r.lat === s.lat && r.lon === s.lon);
+    uniqueGeo.push({ ...s, xy, roles });
+  }
+
+  // Timeline layout: all positions as a horizontal journey
+  const minYear = Math.min(...allStops.filter(s => s.startYear).map(s => s.startYear));
+  const maxYear = Math.max(...allStops.filter(s => s.startYear).map(s => s.startYear), new Date().getFullYear());
+  const yearSpan = maxYear - minYear || 1;
+
+  return (
+    <div className="scroll-reveal" style={{ marginBottom: 64 }}>
+      <SectionLabel icon="career">CAREER JOURNEY MAP</SectionLabel>
+      <div className="card" style={{ padding: 32, overflow: "hidden" }}>
+        {/* Map section — only if we have geocoded points */}
+        {uniqueGeo.length > 0 && (
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", marginBottom: 24 }}>
+            <defs>
+              <radialGradient id="mapDotGrad"><stop offset="0%" stopColor="var(--gold)" stopOpacity="0.5" /><stop offset="100%" stopColor="var(--gold)" stopOpacity="0" /></radialGradient>
+              <filter id="mapGlow"><feGaussianBlur stdDeviation="3" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+            </defs>
+            {/* Coastline outlines */}
+            {coastlines.map((coast, ci) => {
+              const d = coast.map((c, j) => {
+                const [x, y] = projectFn(c[0], c[1]);
+                return `${j === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+              }).join(" ");
+              return <path key={`coast${ci}`} d={d} fill="rgba(212,168,67,0.03)" stroke="rgba(212,168,67,0.25)" strokeWidth="1" strokeLinejoin="round" />;
+            })}
+            {/* Journey paths */}
+            {uniqueGeo.map((p, i) => {
+              if (i === 0) return null;
+              const prev = uniqueGeo[i - 1];
+              const dx = p.xy[0] - prev.xy[0], dy = p.xy[1] - prev.xy[1];
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const cpx = (prev.xy[0] + p.xy[0]) / 2 - dy * 0.3;
+              const cpy = (prev.xy[1] + p.xy[1]) / 2 + dx * 0.3;
+              return (
+                <path key={`jp${i}`} d={`M ${prev.xy[0]} ${prev.xy[1]} Q ${cpx} ${cpy} ${p.xy[0]} ${p.xy[1]}`}
+                  fill="none" stroke="var(--gold)" strokeWidth="1.5" opacity="0.35"
+                  strokeDasharray={dist} strokeDashoffset={dist}
+                  style={{ animation: `drawIn 1.5s ${0.3 + i * 0.4}s ease forwards` }} />
+              );
+            })}
+            {/* Location dots */}
+            {uniqueGeo.map((p, i) => {
+              const isCurrent = i === uniqueGeo.length - 1;
+              const roleCount = p.roles.length;
+              const dotR = Math.min(8 + roleCount * 3, 18);
+              const label = p.location.split(",")[0].trim();
+              return (
+                <g key={`md${i}`} style={{ animation: `floatIn 0.6s ${0.2 + i * 0.3}s ease forwards`, opacity: 0 }}>
+                  {/* Glow halo */}
+                  <circle cx={p.xy[0]} cy={p.xy[1]} r={dotR * 3} fill="url(#mapDotGrad)" />
+                  {/* Main dot */}
+                  <circle cx={p.xy[0]} cy={p.xy[1]} r={dotR} fill="var(--gold)" opacity={isCurrent ? 0.85 : 0.5} filter="url(#mapGlow)"
+                    style={isCurrent ? { animation: "pulseNode 2.5s ease infinite" } : {}} />
+                  <circle cx={p.xy[0]} cy={p.xy[1]} r={dotR * 0.4} fill="var(--bg)" />
+                  {/* Role count badge */}
+                  {roleCount > 1 && (
+                    <text x={p.xy[0]} y={p.xy[1] + 3.5} textAnchor="middle" fill="var(--gold)" fontSize="9" fontFamily="Space Mono" fontWeight="700">{roleCount}</text>
+                  )}
+                  {/* Location label */}
+                  <text x={p.xy[0]} y={p.xy[1] - dotR - 8} textAnchor="middle" fill={isCurrent ? "var(--gold)" : "var(--text)"} fontSize="11" fontFamily="Space Mono" fontWeight={isCurrent ? "700" : "400"}
+                    style={{ animation: `fadeIn 0.5s ${0.6 + i * 0.3}s forwards`, opacity: 0 }}>
+                    {label}
+                  </text>
+                  {/* Roles under the dot */}
+                  {p.roles.map((r, ri) => (
+                    <text key={ri} x={p.xy[0]} y={p.xy[1] + dotR + 14 + ri * 13} textAnchor="middle" fill="var(--muted)" fontSize="8" fontFamily="Space Mono"
+                      style={{ animation: `fadeIn 0.4s ${0.8 + i * 0.3 + ri * 0.1}s forwards`, opacity: 0 }}>
+                      {r.company.length > 28 ? r.company.slice(0, 26) + "…" : r.company}{r.started ? ` (${r.started.split(" ").pop()})` : ""}
+                    </text>
+                  ))}
+                  {isCurrent && <text x={p.xy[0]} y={p.xy[1] - dotR - 20} textAnchor="middle" fill="var(--gold)" fontSize="7" fontFamily="Space Mono" letterSpacing="2"
+                    style={{ animation: `fadeIn 0.5s ${0.8 + i * 0.3}s forwards`, opacity: 0 }}>CURRENT</text>}
+                </g>
+              );
+            })}
+          </svg>
+        )}
+
+        {/* Horizontal timeline — all positions */}
+        <div style={{ position: "relative", padding: "24px 0 8px" }}>
+          {/* Timeline line */}
+          <div style={{ position: "absolute", top: 24, left: 0, right: 0, height: 2, background: "var(--border)", opacity: 0.3 }} />
+          {/* Year markers */}
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24, position: "relative" }}>
+            {Array.from({ length: Math.min(yearSpan + 1, 12) }, (_, i) => {
+              const year = minYear + Math.round(i * yearSpan / Math.min(yearSpan, 11));
+              return <span key={year} style={{ fontSize: 9, color: "var(--muted)", fontFamily: "Space Mono", opacity: 0.5 }}>{year}</span>;
+            })}
+          </div>
+          {/* Position nodes — oldest first (left) to newest (right) */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 8 }}>
+            {[...allStops].sort((a, b) => a.startYear - b.startYear).map((s, i, arr) => {
+              const isCurrent = !s.finished || s.finished === "Present";
+              return (
+                <div key={i} className="scroll-reveal" style={{
+                  flex: "1 1 160px", maxWidth: 220, padding: "12px 14px",
+                  background: isCurrent ? "rgba(212,168,67,0.08)" : "rgba(255,255,255,0.02)",
+                  border: `1px solid ${isCurrent ? "rgba(212,168,67,0.3)" : "var(--border)"}`,
+                  borderRadius: 8, position: "relative",
+                  animation: `floatIn 0.5s ${0.1 + i * 0.08}s ease forwards`, opacity: 0,
+                }}>
+                  {isCurrent && <div style={{ position: "absolute", top: -6, right: 8, fontSize: 7, fontFamily: "Space Mono", color: "var(--gold)", letterSpacing: 1.5, background: "var(--bg)", padding: "0 4px" }}>NOW</div>}
+                  <div style={{ fontSize: 9, color: "var(--gold)", fontFamily: "Space Mono", letterSpacing: "0.05em", marginBottom: 4 }}>
+                    {s.started}{s.finished !== "Present" ? ` → ${s.finished}` : ""}{s.isGlobal ? " · GLOBAL" : ""}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 2, lineHeight: 1.3 }}>{s.title}</div>
+                  <div style={{ fontSize: 9, color: "var(--muted)" }}>{s.company}</div>
+                  {s.location !== "—" && !s.isGlobal && (
+                    <div style={{ fontSize: 9, color: "var(--gold-dim)", marginTop: 4 }}>
+                      <span style={{ opacity: 0.6 }}>📍</span> {s.location.split(",")[0]}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SkillsConstellation({ skills: sk }) {
   if (!sk || sk.totalEndorsements === 0) return null;
   const allSkills = sk.topSkills.length > 0 ? sk.topSkills.slice(0, 24) : [];
@@ -1481,9 +1745,25 @@ function SkillsConstellation({ skills: sk }) {
         {rings.map((r, i) => (
           <circle key={`ring${i}`} cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth="0.3" opacity={0.3 - i * 0.05} strokeDasharray="4 8" />
         ))}
-        {nodes.map((n, i) => i > 0 && (
-          <line key={`l${i}`} x1={nodes[i - 1].x} y1={nodes[i - 1].y} x2={n.x} y2={n.y} stroke="var(--gold-dim)" strokeWidth="0.5" opacity="0.25" strokeDasharray="1000" strokeDashoffset="1000" style={{ animation: `drawIn 2s ${i * 0.1}s ease forwards` }} />
-        ))}
+        {nodes.map((n, i) => {
+          if (i === 0) return null;
+          const prev = nodes[i - 1];
+          const avgSize = (prev.size + n.size) / 2;
+          const lineW = 0.5 + (avgSize / 64) * 4;
+          const len = Math.hypot(n.x - prev.x, n.y - prev.y);
+          const isActive = hoveredNode === i || hoveredNode === i - 1;
+          return (
+            <g key={`l${i}`}>
+              <line x1={prev.x} y1={prev.y} x2={n.x} y2={n.y} stroke="var(--gold-dim)" strokeWidth={lineW} opacity={isActive ? "0.5" : "0.2"}
+                strokeDasharray="1000" strokeDashoffset="1000" style={{ animation: `drawIn 2s ${i * 0.1}s ease forwards`, transition: "opacity 0.3s" }} />
+              {isActive && (
+                <line x1={prev.x} y1={prev.y} x2={n.x} y2={n.y} stroke="var(--gold)" strokeWidth={lineW * 0.8}
+                  strokeDasharray={`${len * 0.08} ${len * 0.92}`} strokeLinecap="round"
+                  style={{ animation: `electricPulse 4.8s linear infinite` }} />
+              )}
+            </g>
+          );
+        })}
         {nodes.map((n) => {
           const isHovered = hoveredNode === n.i;
           return (
@@ -1507,13 +1787,108 @@ function SkillsConstellation({ skills: sk }) {
             </g>
           );
         })}
-        {/* Center hub — moved to z-front */}
-        <circle cx={cx} cy={cy} r={50} fill="var(--surface)" stroke="var(--gold-dim)" strokeWidth="1.5" />
-        <circle cx={cx} cy={cy} r={47} fill="var(--bg)" />
-        <text x={cx} y={cy - 8} textAnchor="middle" fill="var(--gold)" fontSize="32" fontFamily="Playfair Display,serif" fontWeight="700">{sk.totalEndorsements}</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--muted)" fontSize="7" fontFamily="Space Mono" letterSpacing="2.5">ENDORSEMENTS</text>
       </svg>
     </div>
+  );
+}
+
+function CompanyBubbles({ companies, total }) {
+  if (!companies || companies.length === 0) return null;
+  const items = companies.slice(0, 20);
+  const maxCount = items[0][1];
+  const W = 900, H = 600;
+  const minR = 28, maxR = 100;
+
+  // Size bubbles by sqrt of count for area-proportional scaling
+  const bubbles = items.map(([name, count], i) => {
+    const skip = /freelance|self.?employed|independent|consultant/i.test(name);
+    const domain = skip ? null : companyToDomain(name);
+    const r = minR + Math.sqrt(count / maxCount) * (maxR - minR);
+    const isNotable = NOTABLE_COMPANIES.has(name);
+    return { name, count, r, domain, isNotable, i };
+  });
+
+  // Simple circle packing via simulation (greedy placement)
+  const placed = [];
+  const cx = W / 2, cy = H / 2;
+  for (const b of bubbles) {
+    if (placed.length === 0) {
+      b.x = cx; b.y = cy;
+      placed.push(b);
+      continue;
+    }
+    // Try placing at angle spiraling outward
+    let bestDist = Infinity, bestX = cx, bestY = cy;
+    for (let angle = 0; angle < Math.PI * 20; angle += 0.15) {
+      const dist = 2 + angle * 6;
+      const tx = cx + Math.cos(angle) * dist;
+      const ty = cy + Math.sin(angle) * dist;
+      // Check overlap with all placed
+      let overlap = false;
+      for (const p of placed) {
+        const dx = tx - p.x, dy = ty - p.y;
+        if (Math.sqrt(dx * dx + dy * dy) < b.r + p.r + 4) { overlap = true; break; }
+      }
+      if (!overlap) {
+        const d = Math.sqrt((tx - cx) ** 2 + (ty - cy) ** 2);
+        if (d < bestDist) { bestDist = d; bestX = tx; bestY = ty; }
+        break;
+      }
+    }
+    b.x = bestX; b.y = bestY;
+    placed.push(b);
+  }
+
+  // Auto-fit viewBox to placed bubbles
+  let vMinX = Infinity, vMaxX = -Infinity, vMinY = Infinity, vMaxY = -Infinity;
+  for (const b of placed) {
+    vMinX = Math.min(vMinX, b.x - b.r - 10);
+    vMaxX = Math.max(vMaxX, b.x + b.r + 10);
+    vMinY = Math.min(vMinY, b.y - b.r - 10);
+    vMaxY = Math.max(vMaxY, b.y + b.r + 10);
+  }
+  const vW = vMaxX - vMinX, vH = vMaxY - vMinY;
+
+  // Color palette — warm tones for light theme
+  const colors = [
+    "rgba(212,168,67,0.55)", "rgba(61,214,200,0.45)", "rgba(212,104,74,0.45)",
+    "rgba(180,140,60,0.4)", "rgba(80,180,170,0.35)", "rgba(200,120,80,0.35)",
+    "rgba(160,130,70,0.35)", "rgba(100,190,180,0.3)", "rgba(190,100,70,0.3)",
+    "rgba(140,120,80,0.3)", "rgba(120,180,170,0.25)", "rgba(170,90,70,0.25)",
+  ];
+
+  return (
+    <svg viewBox={`${vMinX} ${vMinY} ${vW} ${vH}`} style={{ width: "100%", height: "auto", maxHeight: 550 }}>
+      {placed.map((b, i) => {
+        const fontSize = b.r > 60 ? 11 : b.r > 40 ? 9 : 7;
+        const countSize = b.r > 60 ? 13 : b.r > 40 ? 11 : 8;
+        const showLabel = b.r >= 24;
+        const color = colors[i % colors.length];
+        const maxChars = Math.floor(b.r / (fontSize * 0.35));
+        const label = b.name.length > maxChars ? b.name.slice(0, maxChars - 1) + "…" : b.name;
+        return (
+          <g key={b.name} style={{ animation: `floatIn 0.5s ${0.1 + i * 0.06}s ease forwards`, opacity: 0 }}>
+            <circle cx={b.x} cy={b.y} r={b.r} fill={color} stroke={b.isNotable ? "var(--teal)" : "rgba(0,0,0,0.08)"} strokeWidth={b.isNotable ? 1.5 : 0.5} />
+            {showLabel && (
+              <>
+                <text x={b.x} y={b.y - 2} textAnchor="middle" fill="var(--cream-text)" fontSize={fontSize} fontFamily="Space Mono" fontWeight="700">
+                  {label}
+                </text>
+                <text x={b.x} y={b.y + countSize + 2} textAnchor="middle" fill="var(--cream-muted)" fontSize={countSize - 2} fontFamily="Space Mono">
+                  {b.count}
+                </text>
+              </>
+            )}
+            {b.isNotable && showLabel && (
+              <g>
+                <rect x={b.x - 22} y={b.y + countSize + 6} width={44} height={12} rx={2} fill="var(--teal)" opacity="0.85" />
+                <text x={b.x} y={b.y + countSize + 15} textAnchor="middle" fill="#fff" fontSize="6" fontFamily="Space Mono" fontWeight="700" letterSpacing="0.8">NOTABLE</text>
+              </g>
+            )}
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -1600,7 +1975,7 @@ function IndustryTreemap({ industries, total }) {
       {hovered !== null && (() => {
         const r = rects[hovered];
         return (
-          <div style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 10, padding: "6px 14px", background: "var(--cream-surface)", border: "1px solid var(--cream-border)", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", fontSize: 12, color: "var(--cream-text)", fontFamily: "Space Mono", pointerEvents: "none", whiteSpace: "nowrap" }}>
+          <div style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 10, padding: "6px 14px", background: "var(--cream-surface)", border: "1px solid var(--cream-border)", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", fontSize: 13, color: "var(--cream-text)", fontFamily: "Space Mono", pointerEvents: "none", whiteSpace: "nowrap" }}>
             <span style={{ color: r.color, fontWeight: 700 }}>{r.label}</span> — {r.count.toLocaleString()} connections ({r.pct}%)
           </div>
         );
@@ -1681,9 +2056,9 @@ function MonthGrid({ data }) {
               transition: visible ? `height 0.8s ${0.2 + i * 0.04}s cubic-bezier(0.22,1,0.36,1)` : "none",
             }} />
             <div style={{ position: "relative", zIndex: 1 }}>
-              <div style={{ fontSize: 8, color: "var(--cream-muted)", letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
-              <div className="serif" style={{ fontSize: 20, color: isTop ? "var(--gold)" : "var(--cream-text)", lineHeight: 1, marginBottom: 2, fontWeight: isTop ? 700 : 400 }}>{d.added}</div>
-              {pct > 0 && <div style={{ fontSize: 8, color: isTop ? "var(--gold)" : "var(--cream-muted)" }}>{pct}%</div>}
+              <div style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
+              <div className="serif" style={{ fontSize: 22, color: isTop ? "var(--gold)" : "var(--cream-text)", lineHeight: 1, marginBottom: 2, fontWeight: isTop ? 700 : 400 }}>{d.added}</div>
+              {pct > 0 && <div style={{ fontSize: 9, color: isTop ? "var(--gold)" : "var(--cream-muted)" }}>{pct}%</div>}
             </div>
           </div>
         );
@@ -1694,12 +2069,12 @@ function MonthGrid({ data }) {
 
 function NetworkRadar({ c, silentNetwork, articles, contentCreator }) {
   const axes = [
-    { label: "Size", value: Math.min(c.bench.connectionsPct || 50, 100) },
-    { label: "Diversity", value: Math.min(100 - c.concentration + 10, 100) },
-    { label: "Seniority", value: Math.min(c.execPct * 4, 100) },
-    { label: "Engagement", value: silentNetwork ? silentNetwork.messagedPct : 50 },
-    { label: "Growth", value: Math.min((c.recent12 / 120) * 100, 100) },
-    { label: "Content", value: Math.min(((articles?.total || 0) + (contentCreator?.totalPieces || 0)) * 3, 100) },
+    { label: "Size", value: Math.min(c.bench.connectionsPct || 50, 100), icon: "M6 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm5 2a2.5 2.5 0 1 1 0 5M1 12c0-2 2-3 5-3s5 1 5 3m1-3c2 0 3.5.8 3.5 2.5" }, // people
+    { label: "Diversity", value: Math.min(100 - c.concentration + 10, 100), icon: "M2 2h4v4H2zm6 0h4v4H8zm-6 6h4v4H2zm6 0h4v4H8z" }, // grid
+    { label: "Seniority", value: Math.min(c.execPct * 4, 100), icon: "M7 1l3 5H4zM3 8h8v5H3z" }, // pyramid
+    { label: "Engagement", value: silentNetwork ? silentNetwork.messagedPct : 50, icon: "M2 4h10v7H6l-3 2v-2H2z" }, // chat
+    { label: "Growth", value: Math.min((c.recent12 / 120) * 100, 100), icon: "M2 12L6 6l3 3 4-7" }, // trend up
+    { label: "Content", value: Math.min(((articles?.total || 0) + (contentCreator?.totalPieces || 0)) * 3, 100), icon: "M3 1h8v12H3zM5 4h4M5 6h4M5 8h2" }, // doc
   ];
   const cx = 200, cy = 200, maxR = 140;
   const n = axes.length;
@@ -1709,44 +2084,205 @@ function NetworkRadar({ c, silentNetwork, articles, contentCreator }) {
   const points = axes.map((a, i) => {
     const angle = -Math.PI / 2 + i * angleStep;
     const r = (a.value / 100) * maxR;
-    return { ...a, x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle), lx: cx + (maxR + 28) * Math.cos(angle), ly: cy + (maxR + 28) * Math.sin(angle) };
+    const ax = cx + maxR * Math.cos(angle), ay = cy + maxR * Math.sin(angle); // axis tip for icon
+    return { ...a, x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle), ax, ay, lx: cx + (maxR + 60) * Math.cos(angle), ly: cy + (maxR + 60) * Math.sin(angle), angle };
   });
-  const pathD = "M" + points.map(p => `${p.x},${p.y}`).join("L") + "Z";
+  // Smooth closed cardinal spline helper
+  const smoothClosed = (pts, t = 0.18) => {
+    const n2 = pts.length;
+    let d = `M ${pts[0].x},${pts[0].y}`;
+    for (let i = 0; i < n2; i++) {
+      const p0 = pts[(i - 1 + n2) % n2];
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n2];
+      const p3 = pts[(i + 2) % n2];
+      d += ` C ${p1.x + (p2.x - p0.x) * t},${p1.y + (p2.y - p0.y) * t} ${p2.x - (p3.x - p1.x) * t},${p2.y - (p3.y - p1.y) * t} ${p2.x},${p2.y}`;
+    }
+    return d;
+  };
+  const smoothPathD = smoothClosed(points);
   const totalLen = points.reduce((s, p, i) => {
     const next = points[(i + 1) % points.length];
     return s + Math.hypot(next.x - p.x, next.y - p.y);
-  }, 0);
+  }, 0) * 1.2;
 
   return (
-    <div className="scroll-reveal" style={{ display: "flex", justifyContent: "center", padding: "24px 0", marginBottom: 32 }}>
-      <svg viewBox="0 0 400 400" style={{ width: "100%", maxWidth: 420, height: "auto" }}>
+    <div className="scroll-reveal" style={{ display: "flex", justifyContent: "center", padding: "24px 0", marginBottom: 64 }}>
+      <svg viewBox="-20 -40 440 480" style={{ width: "100%", maxWidth: 800, height: "auto" }}>
         <defs>
           <radialGradient id="radarFill"><stop offset="0%" stopColor="var(--gold)" stopOpacity="0.25" /><stop offset="100%" stopColor="var(--gold)" stopOpacity="0.03" /></radialGradient>
           <filter id="radarGlow"><feGaussianBlur stdDeviation="4" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
         </defs>
+        {/* Smoothed grid rings */}
         {gridLevels.map(level => {
           const r = (level / 100) * maxR;
-          const pts = Array.from({ length: n }, (_, i) => {
+          const gridPts = Array.from({ length: n }, (_, i) => {
             const angle = -Math.PI / 2 + i * angleStep;
-            return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`;
-          }).join(" ");
-          return <polygon key={level} points={pts} fill="none" stroke="var(--border)" strokeWidth="0.5" opacity={0.15 + level * 0.002} />;
+            return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+          });
+          return <path key={level} d={smoothClosed(gridPts)} fill="none" stroke="var(--gold-dim)" strokeWidth="0.65" opacity="0.2" />;
         })}
+        {/* Axis spokes */}
         {axes.map((_, i) => {
           const angle = -Math.PI / 2 + i * angleStep;
-          return <line key={i} x1={cx} y1={cy} x2={cx + maxR * Math.cos(angle)} y2={cy + maxR * Math.sin(angle)} stroke="var(--border)" strokeWidth="0.5" opacity="0.2" />;
+          return <line key={i} x1={cx} y1={cy} x2={cx + maxR * Math.cos(angle)} y2={cy + maxR * Math.sin(angle)} stroke="var(--gold-dim)" strokeWidth="0.65" opacity="0.2" />;
         })}
-        <path d={pathD} fill="url(#radarFill)" stroke="var(--gold)" strokeWidth="2" filter="url(#radarGlow)" strokeDasharray={totalLen} strokeDashoffset={totalLen} style={{ animation: `drawIn 2s 0.3s ease forwards` }} />
-        <path d={pathD} fill="url(#radarFill)" stroke="none" opacity="0" style={{ animation: `fadeIn 1s 1.5s ease forwards` }} />
+        <path d={smoothPathD} fill="url(#radarFill)" stroke="var(--gold)" strokeWidth="1" filter="url(#radarGlow)" strokeDasharray={totalLen} strokeDashoffset={totalLen} style={{ animation: `drawIn 2s 0.3s ease forwards` }} />
+        <path d={smoothPathD} fill="url(#radarFill)" stroke="none" opacity="0" style={{ animation: `fadeIn 1s 1.5s ease forwards` }} />
         {points.map((p, i) => (
           <g key={i}>
-            <circle cx={p.x} cy={p.y} r={5} fill="var(--gold)" opacity="0" style={{ animation: `floatIn 0.5s ${1 + i * 0.1}s ease forwards` }} />
-            <circle cx={p.x} cy={p.y} r={2} fill="var(--bg)" opacity="0" style={{ animation: `floatIn 0.5s ${1 + i * 0.1}s ease forwards` }} />
-            <text x={p.lx} y={p.ly - 6} textAnchor="middle" fill="var(--muted)" fontSize="7" fontFamily="Space Mono" letterSpacing="0.5" opacity="0" style={{ animation: `floatIn 0.5s ${1.2 + i * 0.05}s ease forwards` }}>{p.label.toUpperCase()}</text>
-            <text x={p.lx} y={p.ly + 8} textAnchor="middle" fill="var(--gold)" fontSize="11" fontFamily="Playfair Display,serif" fontWeight="700" opacity="0" style={{ animation: `floatIn 0.5s ${1.2 + i * 0.05}s ease forwards` }}>{Math.round(p.value)}</text>
+            <circle cx={p.x} cy={p.y} r={3.5} fill="var(--gold)" opacity="0" style={{ animation: `floatIn 0.5s ${1 + i * 0.1}s ease forwards` }} />
+            <circle cx={p.x} cy={p.y} r={1.5} fill="var(--bg)" opacity="0" style={{ animation: `floatIn 0.5s ${1 + i * 0.1}s ease forwards` }} />
+            {/* Icon at axis tip */}
+            <g opacity="0" style={{ animation: `floatIn 0.4s ${0.8 + i * 0.08}s ease forwards` }}>
+              {(() => { const ix = (p.ax + p.lx) / 2, iy = (p.ay + p.ly) / 2; return (<>
+                <circle cx={ix} cy={iy} r={10} fill="var(--bg)" opacity="0.7" />
+                <path d={p.icon} transform={`translate(${ix - 7},${iy - 7}) scale(0.9)`} fill="none" stroke="var(--gold)" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+              </>); })()}
+            </g>
+            {/* Label + value outside */}
+            <g opacity="0" style={{ animation: `floatIn 0.5s ${1.2 + i * 0.05}s ease forwards` }}>
+              <text x={p.lx} y={p.ly + 2} textAnchor="middle" fill="var(--muted)" fontSize="7" fontFamily="Space Mono" letterSpacing="0.5">{p.label.toUpperCase()}</text>
+              <text x={p.lx} y={p.ly + 14} textAnchor="middle" fill="var(--gold)" fontSize="11" fontFamily="Playfair Display,serif" fontWeight="700">{Math.round(p.value)}</text>
+            </g>
           </g>
         ))}
       </svg>
+    </div>
+  );
+}
+
+function GrowthAreaChart({ monthMap, firstYear, total }) {
+  if (!monthMap || Object.keys(monthMap).length === 0) return null;
+  const now = new Date();
+  const startYear = firstYear || parseInt(Object.keys(monthMap).sort()[0]?.split("-")[0]) || 2010;
+  const endYear = now.getFullYear();
+  const endMonth = now.getMonth();
+
+  // Build cumulative monthly data
+  const points = [];
+  let cumulative = 0;
+  for (let y = startYear; y <= endYear; y++) {
+    const mEnd = y === endYear ? endMonth : 11;
+    for (let m = 0; m <= mEnd; m++) {
+      const key = `${y}-${String(m + 1).padStart(2, "0")}`;
+      cumulative += (monthMap[key] || 0);
+      points.push({ year: y, month: m, total: cumulative, key });
+    }
+  }
+  if (points.length < 2) return null;
+
+  const maxVal = Math.max(...points.map(p => p.total), 1);
+  const W = 900, H = 380, padL = 50, padR = 20, padT = 55, padB = 40;
+  const chartW = W - padL - padR, chartH = H - padT - padB;
+
+  const xOf = (i) => padL + (i / (points.length - 1)) * chartW;
+  const yOf = (v) => padT + chartH - (v / maxVal) * chartH;
+
+  // Build the area path
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xOf(i).toFixed(1)} ${yOf(p.total).toFixed(1)}`).join(" ");
+  const areaPath = linePath + ` L ${xOf(points.length - 1).toFixed(1)} ${(padT + chartH).toFixed(1)} L ${xOf(0).toFixed(1)} ${(padT + chartH).toFixed(1)} Z`;
+
+  // Year tick positions
+  const yearTicks = [];
+  for (let y = startYear; y <= endYear; y++) {
+    const idx = points.findIndex(p => p.year === y && p.month === 0);
+    if (idx >= 0) yearTicks.push({ year: y, x: xOf(idx) });
+  }
+
+  // Value gridlines
+  const gridLines = [];
+  const step = maxVal > 1000 ? 500 : maxVal > 500 ? 200 : maxVal > 200 ? 100 : maxVal > 50 ? 25 : 10;
+  for (let v = step; v < maxVal; v += step) {
+    gridLines.push({ v, y: yOf(v) });
+  }
+
+  // Find milestone points (25%, 50%, 75%, 100%)
+  const milestones = [0.25, 0.5, 0.75].map(pct => {
+    const target = Math.round(maxVal * pct);
+    const idx = points.findIndex(p => p.total >= target);
+    if (idx < 0) return null;
+    const p = points[idx];
+    return { pct, x: xOf(idx), y: yOf(p.total), total: p.total, label: `${p.year}` };
+  }).filter(Boolean);
+
+  return (
+    <div className="scroll-reveal" style={{ marginBottom: 64 }}>
+      <SectionLabel icon="connections">NETWORK GROWTH</SectionLabel>
+      <div className="card" style={{ padding: 24, overflow: "hidden" }}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+          <defs>
+            <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.6" />
+              <stop offset="60%" stopColor="#d4684a" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#3dd6c8" stopOpacity="0.08" />
+            </linearGradient>
+            <linearGradient id="growthLineGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="var(--gold)" stopOpacity="0.9" />
+            </linearGradient>
+            <clipPath id="growthClip"><rect x={padL} y={padT} width={chartW} height={chartH} /></clipPath>
+            <clipPath id="growthReveal">
+              <rect x={padL} y={0} width={0} height={H}>
+                <animate attributeName="width" from="0" to={chartW + padR} dur="2s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.25 0.1 0.25 1" keyTimes="0;1" />
+              </rect>
+            </clipPath>
+          </defs>
+
+          {/* Grid lines */}
+          {gridLines.map(g => (
+            <g key={`gl${g.v}`}>
+              <line x1={padL} y1={g.y} x2={padL + chartW} y2={g.y} stroke="var(--border)" strokeWidth="0.5" opacity="0.15" />
+              <text x={padL - 8} y={g.y + 3} textAnchor="end" fill="var(--muted)" fontSize="8" fontFamily="Space Mono" opacity="0.5">{g.v.toLocaleString()}</text>
+            </g>
+          ))}
+
+          {/* Year ticks */}
+          {yearTicks.filter((_, i) => {
+            const totalYears = endYear - startYear;
+            if (totalYears <= 15) return true;
+            return i % Math.ceil(totalYears / 12) === 0;
+          }).map(t => (
+            <g key={`yt${t.year}`}>
+              <line x1={t.x} y1={padT + chartH} x2={t.x} y2={padT + chartH + 6} stroke="var(--border)" strokeWidth="0.5" opacity="0.3" />
+              <text x={t.x} y={padT + chartH + 18} textAnchor="middle" fill="var(--muted)" fontSize="9" fontFamily="Space Mono" opacity="0.5">{t.year}</text>
+            </g>
+          ))}
+
+          {/* Area fill + line — reveal left to right */}
+          <g clipPath="url(#growthReveal)">
+            <g clipPath="url(#growthClip)">
+              <path d={areaPath} fill="url(#growthGrad)" />
+            </g>
+            <path d={linePath} fill="none" stroke="url(#growthLineGrad)" strokeWidth="2" strokeLinejoin="round" />
+          </g>
+
+          {/* Milestone markers */}
+          {milestones.map((m, i) => (
+            <g key={`ms${i}`} style={{ animation: `floatIn 0.4s ${1 + i * 0.3}s ease forwards`, opacity: 0 }}>
+              <line x1={m.x} y1={m.y} x2={m.x} y2={padT + chartH} stroke="var(--gold)" strokeWidth="0.5" opacity="0.2" strokeDasharray="3 3" />
+              <circle cx={m.x} cy={m.y} r="3" fill="var(--gold)" opacity="0.7" />
+              <text x={m.x} y={m.y - 10} textAnchor="middle" fill="var(--gold)" fontSize="8" fontFamily="Space Mono" fontWeight="700" opacity="0.7">
+                {Math.round(m.pct * 100)}%
+              </text>
+            </g>
+          ))}
+
+          {/* Current total endpoint */}
+          <g style={{ animation: "floatIn 0.5s 1.5s ease forwards", opacity: 0 }}>
+            <circle cx={xOf(points.length - 1)} cy={yOf(maxVal)} r="5" fill="var(--gold)" filter="url(#mapGlow)" style={{ animation: "pulseNode 2.5s ease infinite" }} />
+            <text x={xOf(points.length - 1) - 8} y={yOf(maxVal) - 14} textAnchor="end" fill="var(--gold)" fontSize="13" fontFamily="Space Mono" fontWeight="700">
+              {maxVal.toLocaleString()}
+            </text>
+            <text x={xOf(points.length - 1) - 8} y={yOf(maxVal) - 28} textAnchor="end" fill="var(--muted)" fontSize="9" fontFamily="Space Mono">
+              connections
+            </text>
+          </g>
+
+          {/* Baseline */}
+          <line x1={padL} y1={padT + chartH} x2={padL + chartW} y2={padT + chartH} stroke="var(--border)" strokeWidth="0.5" opacity="0.3" />
+        </svg>
+      </div>
     </div>
   );
 }
@@ -1767,7 +2303,7 @@ function ConnectionHeatmap({ monthMap, firstYear }) {
   const height = 20 + years.length * (cellH + gap);
 
   return (
-    <div className="scroll-reveal" style={{ marginBottom: 32 }}>
+    <div className="scroll-reveal" style={{ marginBottom: 64 }}>
       <SectionLabel color="var(--cream-muted)" icon="calendar">NETWORK GROWTH HEATMAP</SectionLabel>
       <div className="card" style={{ padding: 24, overflowX: "auto" }}>
         <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto" }}>
@@ -1804,11 +2340,11 @@ function ConnectionHeatmap({ monthMap, firstYear }) {
           ))}
         </svg>
         <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", marginTop: 10 }}>
-          <span style={{ fontSize: 8, color: "var(--muted)" }}>Less</span>
+          <span style={{ fontSize: 9, color: "var(--muted)" }}>Less</span>
           {[0.05, 0.2, 0.4, 0.6, 0.9].map((o, i) => (
             <div key={i} style={{ width: 10, height: 10, borderRadius: 2, background: "var(--gold)", opacity: o }} />
           ))}
-          <span style={{ fontSize: 8, color: "var(--muted)" }}>More</span>
+          <span style={{ fontSize: 9, color: "var(--muted)" }}>More</span>
         </div>
       </div>
     </div>
@@ -1826,7 +2362,7 @@ function WaffleChart({ filledPct, filledColor = "var(--gold)", emptyColor = "var
             <div
               key={i}
               style={{
-                aspectRatio: "1", borderRadius: 3,
+                aspectRatio: "2/1", borderRadius: 3,
                 background: isFilled ? filledColor : emptyColor,
                 opacity: isFilled ? 0.75 : 0.12,
                 animation: `floatIn 0.15s ${i * 0.008}s ease forwards`,
@@ -1968,7 +2504,7 @@ function SkillsRadialBar({ skills: topSkills, total }) {
 
           // Label position — at the midpoint of the arc, outside
           const midAngle = (a1 + a2) / 2;
-          const labelR = outerR + 20;
+          const labelR = outerR + 30;
           const lx = cx + labelR * Math.cos(midAngle);
           const ly = cy + labelR * Math.sin(midAngle);
           const isRight = Math.cos(midAngle) >= 0;
@@ -1979,7 +2515,7 @@ function SkillsRadialBar({ skills: topSkills, total }) {
               <path d={arc} fill={color} opacity={opacity} filter={isHov ? "url(#radialBarGlow)" : undefined}
                 style={{ animation: `barGrow 1s ${0.1 + i * 0.06}s cubic-bezier(0.22,1,0.36,1) forwards`, transformOrigin: `${cx}px ${cy}px`, transform: "scaleY(0)", transition: "opacity 0.2s" }} />
               {/* Skill label radiating outward */}
-              <text x={lx} y={ly} textAnchor={isRight ? "start" : "end"} fill={isHov ? "var(--gold)" : "var(--text)"} fontSize={isHov ? "10" : "8"} fontFamily="Space Mono" fontWeight={isTop3 ? "700" : "400"} dominantBaseline="middle"
+              <text x={lx} y={ly} textAnchor={isRight ? "start" : "end"} fill={isHov ? "var(--gold)" : "var(--text)"} fontSize={isHov ? "13" : "11"} fontFamily="Space Mono" fontWeight={isTop3 ? "700" : "400"} dominantBaseline="middle"
                 style={{ animation: `fadeIn 0.5s ${0.5 + i * 0.06}s forwards`, opacity: 0, transition: "fill 0.2s, font-size 0.2s" }}>
                 {skill}{isHov ? ` — ${count}` : ""}
               </text>
@@ -1988,7 +2524,7 @@ function SkillsRadialBar({ skills: topSkills, total }) {
                 const textR = innerR + (barR - innerR) * 0.5;
                 const tx = cx + textR * Math.cos(midAngle);
                 const ty = cy + textR * Math.sin(midAngle);
-                return <text x={tx} y={ty} textAnchor="middle" dominantBaseline="middle" fill="var(--bg)" fontSize="8" fontFamily="Space Mono" fontWeight="700" style={{ animation: `fadeIn 0.5s ${0.8 + i * 0.06}s forwards`, opacity: 0 }}>{pct}%</text>;
+                return <text x={tx} y={ty} textAnchor="middle" dominantBaseline="middle" fill="var(--bg)" fontSize="13" fontFamily="Space Mono" fontWeight="700" style={{ animation: `fadeIn 0.5s ${0.8 + i * 0.06}s forwards`, opacity: 0 }}>{pct}%</text>;
               })()}
             </g>
           );
@@ -1996,8 +2532,8 @@ function SkillsRadialBar({ skills: topSkills, total }) {
         {/* Center circle */}
         <circle cx={cx} cy={cy} r={innerR - 5} fill="var(--surface)" stroke="var(--border)" strokeWidth="1" />
         <circle cx={cx} cy={cy} r={innerR - 8} fill="var(--bg)" />
-        <text x={cx} y={cy - 8} textAnchor="middle" fill="var(--gold)" fontSize="28" fontFamily="Playfair Display,serif" fontWeight="700">{topSkills.length}</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="var(--muted)" fontSize="7" fontFamily="Space Mono" letterSpacing="2">SKILLS</text>
+        <text x={cx} y={cy - 8} textAnchor="middle" fill="var(--gold)" fontSize="32" fontFamily="Playfair Display,serif" fontWeight="700">{topSkills.length}</text>
+        <text x={cx} y={cy + 14} textAnchor="middle" fill="var(--muted)" fontSize="9" fontFamily="Space Mono" letterSpacing="2">SKILLS</text>
       </svg>
     </div>
   );
@@ -2027,7 +2563,7 @@ function NetworkDNA({ industries, total }) {
     remaining = false;
     for (const q of queues) { if (q.length > 0) { bars.push(q.shift()); remaining = true; } }
   }
-  const barW = 3, gap = 1, height = 120, pad = 20;
+  const barW = 3, gap = 1, height = 120, pad = 80;
   const svgW = bars.length * (barW + gap);
   const viewH = height + pad * 2;
   const containerRef = useRef(null);
@@ -2035,9 +2571,10 @@ function NetworkDNA({ industries, total }) {
   const lensWrapRef = useRef(null);
   const lensGroupRef = useRef(null);
   const lensMaskPathRef = useRef(null);
+  const lensGradRef = useRef(null);
   const svgWRef = useRef(svgW);
   svgWRef.current = svgW;
-  const ZOOM_Y = 1.3;
+  const ZOOM_Y = 1.4;
   const barTop = pad + 6, barBot = pad + height - 6;
   const barMid = (barTop + barBot) / 2;
   const scaledHalf = ((barBot - barTop) / 2) * ZOOM_Y;
@@ -2050,14 +2587,31 @@ function NetworkDNA({ industries, total }) {
     const x = e.clientX - cRect.left;
     const w = svgWRef.current;
     const svgX = (x / cRect.width) * w;
-    const lensW = w * 0.12;
+    const lensW = 250 * (barW + gap);  // grow only ~250 bars near cursor
     const left = svgX - lensW / 2;
     const right = svgX + lensW / 2;
     spotlightRef.current.style.left = `${x}px`;
     spotlightRef.current.style.opacity = "1";
     if (lensWrapRef.current) lensWrapRef.current.style.opacity = "1";
-    if (lensMaskPathRef.current) lensMaskPathRef.current.setAttribute("d",
-      `M ${left} ${barTop} Q ${svgX} ${scaledTop} ${right} ${barTop} L ${right} ${barBot} Q ${svgX} ${scaledBot} ${left} ${barBot} Z`);
+    if (lensGradRef.current) {
+      lensGradRef.current.setAttribute("x1", String(left));
+      lensGradRef.current.setAttribute("x2", String(right));
+    }
+    if (lensMaskPathRef.current) {
+      // Leptokurtic: flat tails, sharp central spike using cubic beziers
+      const hw = lensW / 2;
+      const peakTop = scaledTop - 16;
+      const peakBot = scaledBot + 16;
+      // Top edge: flat from left, then sharp spike at center, flat to right
+      // C control points hug barTop until very close to svgX, then jump to peak
+      lensMaskPathRef.current.setAttribute("d",
+        `M ${left} ${barTop} ` +
+        `C ${left + hw * 0.7} ${barTop}, ${svgX - hw * 0.12} ${barTop}, ${svgX} ${peakTop} ` +
+        `C ${svgX + hw * 0.12} ${barTop}, ${right - hw * 0.7} ${barTop}, ${right} ${barTop} ` +
+        `L ${right} ${barBot} ` +
+        `C ${right - hw * 0.7} ${barBot}, ${svgX + hw * 0.12} ${barBot}, ${svgX} ${peakBot} ` +
+        `C ${svgX - hw * 0.12} ${barBot}, ${left + hw * 0.7} ${barBot}, ${left} ${barBot} Z`);
+    }
   }, [scaledTop, scaledBot, barTop, barBot]);
 
   const handleMouseLeave = useCallback(() => {
@@ -2067,7 +2621,7 @@ function NetworkDNA({ industries, total }) {
 
   return (
     <div className="scroll-reveal" ref={containerRef} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}
-      style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", overflow: "hidden", marginBottom: 40, position: "relative", minHeight: "40vh", cursor: "crosshair" }}>
+      style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", overflow: "hidden", marginBottom: 80, marginTop: 40, position: "relative", minHeight: "50vh", cursor: "crosshair" }}>
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, var(--bg) 0%, transparent 5%, transparent 95%, var(--bg) 100%)", zIndex: 2, pointerEvents: "none" }} />
       {/* CSS-only spotlight — no re-renders */}
       <div ref={spotlightRef} style={{
@@ -2077,10 +2631,17 @@ function NetworkDNA({ industries, total }) {
         transition: "opacity 0.15s",
         mixBlendMode: "screen",
       }} />
-      <svg viewBox={`0 0 ${svgW} ${viewH}`} preserveAspectRatio="none" style={{ width: "100%", height: "40vh", display: "block" }}>
+      <svg viewBox={`0 0 ${svgW} ${viewH}`} preserveAspectRatio="none" style={{ width: "100%", height: "50vh", display: "block" }}>
         <defs>
+          <linearGradient ref={lensGradRef} id="dnaLensGrad" x1="-9999" x2="-9999" y1="0" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="black" />
+            <stop offset="35%" stopColor="rgba(80,80,80,1)" />
+            <stop offset="50%" stopColor="white" />
+            <stop offset="65%" stopColor="rgba(80,80,80,1)" />
+            <stop offset="100%" stopColor="black" />
+          </linearGradient>
           <mask id="dnaLensMask">
-            <path ref={lensMaskPathRef} d={`M -9999 ${barTop} Q -9999 ${barTop} -9999 ${barTop} Z`} fill="white" />
+            <path ref={lensMaskPathRef} d={`M -9999 ${barTop} Q -9999 ${barTop} -9999 ${barTop} Z`} fill="url(#dnaLensGrad)" />
           </mask>
         </defs>
         {/* Normal bars */}
@@ -2112,7 +2673,7 @@ function ChapterOpener({ number, title, subtitle, light }) {
       <div style={{ position: "relative", zIndex: 1 }}>
         <div className="scroll-reveal" style={{ fontSize: 11, letterSpacing: "0.35em", color: "var(--gold)", marginBottom: 24, opacity: 0.7 }}>CHAPTER {number}</div>
         <h2 className="serif scroll-reveal scroll-reveal-delay-1" style={{ fontSize: "clamp(32px, 6vw, 58px)", fontWeight: 400, lineHeight: 1.1, marginBottom: 20, maxWidth: 600 }}>{title}</h2>
-        {subtitle && <p className="scroll-reveal scroll-reveal-delay-2" style={{ fontSize: 14, lineHeight: 1.9, maxWidth: 520, color: light ? "var(--cream-muted)" : "var(--muted)", letterSpacing: "0.02em" }}>{subtitle}</p>}
+        {subtitle && <p className="scroll-reveal scroll-reveal-delay-2" style={{ fontSize: 13, lineHeight: 1.9, maxWidth: 520, color: light ? "var(--cream-muted)" : "var(--muted)", letterSpacing: "0.02em" }}>{subtitle}</p>}
       </div>
     </div>
   );
@@ -2124,7 +2685,7 @@ function ChapterDivider() {
 
 function SectionLabel({ children, color, icon }) {
   return (
-    <div style={{ fontSize: 10, letterSpacing: "0.2em", color: color || "var(--muted)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ fontSize: 11, letterSpacing: "0.2em", color: color || "var(--muted)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
       {icon && <Icon name={icon} size={13} color={color || "var(--muted)"} style={{ opacity: 0.7 }} />}
       {children}
     </div>
@@ -2136,6 +2697,21 @@ function SectionLabel({ children, color, icon }) {
 function Results({ data, onReset }) {
   const { connections: c, messages, adTargeting, inferences, invitations, skills, profile, positions, education, certifications, recsReceived, recsGiven, learning, endorsementReciprocity, silentNetwork, careerIntent, privateAssets, spending, contentCreator, registration, companyFollows, events, aiCoach, jobSeekerPrefs, articles, verifications, providers, savedAnswers, filesFound } = data;
   const hasCareerIntel = (careerIntent && (careerIntent.savedCount > 0 || careerIntent.appliedCount > 0)) || jobSeekerPrefs || companyFollows;
+
+  // Scroll progress bar
+  const progressRef = useRef(null);
+  useEffect(() => {
+    const onScroll = () => {
+      if (!progressRef.current) return;
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = docHeight > 0 ? Math.min(scrollTop / docHeight, 1) * 100 : 0;
+      progressRef.current.style.width = `${pct}%`;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const ch1Ref = useScrollReveal();
   const ch2Ref = useScrollReveal();
@@ -2166,28 +2742,40 @@ function Results({ data, onReset }) {
 
   const [expanded, setExpanded] = useState({});
   const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+  const [dossierOpen, setDossierOpen] = useState(false);
+  const [sealAnimating, setSealAnimating] = useState(false);
+  const breakSeal = () => { if (sealAnimating) return; setSealAnimating(true); setTimeout(() => setDossierOpen(true), 800); };
 
   return (
     <div>
+      {/* Top navbar + reading progress */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "6px 20px", background: "rgba(5,5,8,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)" }}>
+          {/* Fingerprint icon */}
+          <svg width={16} height={16} viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
+            <path d="M16 6 Q8 11 8 18 Q8 26 16 28" fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M16 6 Q24 11 24 18 Q24 26 16 28" fill="none" stroke="var(--teal)" strokeWidth="2" strokeLinecap="round" opacity="0.7"/>
+            <path d="M16 10 Q11.5 14 11.5 18 Q11.5 23 16 25" fill="none" stroke="var(--gold)" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+            <path d="M16 10 Q20.5 14 20.5 18 Q20.5 23 16 25" fill="none" stroke="var(--teal)" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+            <line x1="16" y1="9" x2="16" y2="26" stroke="var(--gold)" strokeWidth="1" opacity="0.3"/>
+          </svg>
+          <span style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--gold)", fontFamily: "'Space Mono', monospace" }}>CAREERPRINT.AI</span>
+          <span style={{ fontSize: 9, color: "var(--muted)", marginLeft: 4 }}>Your career — as unique as your fingerprint</span>
+        </div>
+        <div style={{ height: 2, background: "transparent" }}>
+          <div ref={progressRef} style={{ height: "100%", width: "0%", background: "linear-gradient(90deg, var(--gold), var(--teal))", transition: "width 0.1s linear" }} />
+        </div>
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════
           CHAPTER 1 — YOUR NETWORK AT A GLANCE (DARK)
           ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="chapter chapter-dark" ref={ch1Ref}>
+      <div className="chapter chapter-dark" ref={ch1Ref} style={{ paddingTop: 40 }}>
         <ChapterOpener number="01" title={<>Your Network at a <em style={{ color: "var(--gold)" }}>Glance</em></>} subtitle={`${c.total.toLocaleString()} connections across ${c.networkAge} year${c.networkAge !== 1 ? "s" : ""} — ${filesFound.length} file${filesFound.length !== 1 ? "s" : ""} analysed`} />
 
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px", boxSizing: "border-box" }}>
-          {/* Hero Score */}
-          <div className="scroll-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
-            <ScoreHex score={c.score} />
-            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 12, letterSpacing: "0.1em" }}>
-              <span style={{ color: c.bench.connections.color }}>Larger than ~{c.bench.connectionsPct}% of LinkedIn users</span>
-              {c.notable.count > 0 && <span> · <span style={{ color: "var(--teal)" }}>{c.notable.count} notable companies</span></span>}
-            </div>
-          </div>
-
           {/* Stat cards */}
-          <div className="scroll-reveal scroll-reveal-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 40 }}>
+          <div className="scroll-reveal" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 80 }}>
             {[
               { n: c.total, suf: "", l: "Total Connections", s: `since ${c.firstYear}`, b: c.bench.connections, ic: "connections" },
               { n: c.concentration, suf: "%", l: "Top Sector Share", s: c.topInd[0]?.[0] || "---", warn: c.concentration > 60, ic: "sector" },
@@ -2195,50 +2783,194 @@ function Results({ data, onReset }) {
               { n: c.recent12, suf: "", l: "Added This Year", s: c.growthPct !== null ? `${c.growthPct > 0 ? "+" : ""}${c.growthPct}% vs last year` : "12-month total", ic: "growth" },
             ].map((s, i) => (
               <div key={i} className="card" style={{ padding: "18px 16px" }}>
-                <div style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.1em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}><Icon name={s.ic} size={12} color="var(--muted)" style={{ opacity: 0.6 }} />{s.l.toUpperCase()}</div>
-                <div className="serif" style={{ fontSize: 28, fontWeight: 400, color: s.warn ? "var(--amber)" : "var(--gold)", lineHeight: 1, marginBottom: 4 }}><CountUp value={s.n} suffix={s.suf} /></div>
-                <div style={{ fontSize: 10, color: "var(--muted)" }}>{s.s}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.1em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}><Icon name={s.ic} size={12} color="var(--muted)" style={{ opacity: 0.6 }} />{s.l.toUpperCase()}</div>
+                <div className="serif" style={{ fontSize: 32, fontWeight: 400, color: s.warn ? "var(--amber)" : "var(--gold)", lineHeight: 1, marginBottom: 4 }}><CountUp value={s.n} suffix={s.suf} /></div>
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>{s.s}</div>
                 {s.b && <div style={{ fontSize: 9, color: s.b.color, marginTop: 4, letterSpacing: "0.08em" }}>{s.b.text}</div>}
               </div>
             ))}
           </div>
 
+          {/* Hero Score — below stat cards */}
+          <div className="scroll-reveal scroll-reveal-delay-1" style={{ textAlign: "center", marginBottom: 120 }}>
+            <ScoreHex score={c.score} />
+            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 12, letterSpacing: "0.1em" }}>
+              <span style={{ color: c.bench.connections.color }}>Larger than ~{c.bench.connectionsPct}% of LinkedIn users</span>
+              {c.notable.count > 0 && <span> · <span style={{ color: "var(--teal)" }}>{c.notable.count} notable companies</span></span>}
+            </div>
+          </div>
+
           {/* Network Radar */}
           <SectionLabel icon="targeting">NETWORK HEALTH RADAR</SectionLabel>
-          <div className="card" style={{ padding: 24, marginBottom: 32 }}>
+          <div className="card" style={{ padding: 24, marginBottom: 64 }}>
             <NetworkRadar c={c} silentNetwork={silentNetwork} articles={articles} contentCreator={contentCreator} />
           </div>
 
           {/* Network DNA strip */}
           <NetworkDNA industries={c.industries} total={c.total} />
 
-          {/* Insights — hero treatment */}
+          {/* Insights — flip cards */}
           <SectionLabel icon="insights">KEY INSIGHTS</SectionLabel>
-          <div style={{ display: "flex", flexDirection: "column", gap: 0, marginBottom: 32 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 64 }}>
             {c.insights.map((ins, i) => {
-              const accentColor = ins.type === "positive" ? "var(--green)" : ins.type === "warning" ? "var(--amber)" : "var(--muted)";
-              const isHero = i === 0;
+              const accentColor = ins.type === "gold" ? "var(--gold)" : ins.type === "positive" ? "var(--green)" : ins.type === "warning" ? "var(--amber)" : "var(--muted)";
+              const bgTint = ins.type === "gold" ? "rgba(212,168,67,0.1)" : ins.type === "positive" ? "rgba(76,175,80,0.08)" : ins.type === "warning" ? "rgba(255,152,0,0.08)" : "rgba(255,255,255,0.03)";
+              const bgTintBack = ins.type === "gold" ? "rgba(212,168,67,0.05)" : ins.type === "positive" ? "rgba(76,175,80,0.04)" : ins.type === "warning" ? "rgba(255,152,0,0.04)" : "rgba(255,255,255,0.02)";
               return (
-                <div key={i} className="scroll-reveal" style={{ position: "relative", overflow: "hidden", ...(isHero ? {
-                  padding: "48px 40px", marginBottom: 16,
-                  background: "var(--surface)", border: "1px solid var(--border)",
-                } : {
-                  padding: "20px 24px", marginBottom: 8,
-                  background: "var(--surface)", border: "1px solid var(--border)",
-                }) }}>
-                  {/* Top accent line */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: isHero ? 3 : 2, background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)` }} />
-                  {/* Background glow for hero */}
-                  {isHero && <div style={{ position: "absolute", top: -50, right: -50, width: 300, height: 300, borderRadius: "50%", background: `radial-gradient(circle, ${accentColor.replace("var(--", "rgba(").replace(")", ",0.06)")} 0%, transparent 70%)`, pointerEvents: "none", animation: "ambientGlow 6s ease infinite" }} />}
-                  <div style={{ position: "relative", zIndex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isHero ? 12 : 6 }}>
-                      {isHero && <div style={{ width: 32, height: 32, borderRadius: "50%", border: `2px solid ${accentColor}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Icon name={ins.type === "positive" ? "growth" : ins.type === "warning" ? "targeting" : "industry"} size={14} color={accentColor} />
-                      </div>}
-                      {!isHero && <div style={{ width: 3, height: 16, background: accentColor, borderRadius: 2, flexShrink: 0 }} />}
-                      <div style={{ fontSize: isHero ? 13 : 11, fontWeight: 700, letterSpacing: "0.12em", color: accentColor }}>{ins.headline.toUpperCase()}</div>
+                <div key={i} className="scroll-reveal insight-flip-card" style={{ perspective: 800, height: 180, gridColumn: ins.fullWidth ? "1 / -1" : "auto" }}>
+                  <div className="insight-flip-inner" style={{ position: "relative", width: "100%", height: "100%", transition: "transform 0.5s cubic-bezier(0.4,0,0.2,1)", transformStyle: "preserve-3d" }}>
+
+                    {/* FRONT — hero number + headline */}
+                    <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+                      background: bgTint, border: `1px solid ${accentColor}33`, padding: "28px 24px",
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 8 }}>
+                      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)` }} />
+                      {ins.statIsText ? (
+                        <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'Playfair Display', serif", color: accentColor, lineHeight: 1.1 }}>{ins.stat}</div>
+                      ) : (
+                        <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'Space Mono', monospace", color: accentColor, lineHeight: 1.1 }}>
+                          {ins.statPrefix || ""}<CountUp value={ins.stat} suffix={ins.statSuffix || ""} />
+                        </div>
+                      )}
+                      {ins.subStat && <div style={{ fontSize: 9, letterSpacing: "0.15em", color: "var(--muted)" }}>{ins.subStat}</div>}
+
+                      {/* Front micro-viz */}
+                      {ins.vizType === "arc" && (() => {
+                        const pct = Math.min(ins.stat / (ins.vizMax || 100), 1);
+                        const r = 24, cxA = 28, cyA = 28, stroke = 3;
+                        const circumference = Math.PI * r;
+                        return (
+                          <svg width={56} height={32} style={{ display: "block", margin: "4px auto 0" }}>
+                            <path d={`M ${cxA - r} ${cyA} A ${r} ${r} 0 0 1 ${cxA + r} ${cyA}`} fill="none" stroke="var(--border)" strokeWidth={stroke} />
+                            <path d={`M ${cxA - r} ${cyA} A ${r} ${r} 0 0 1 ${cxA + r} ${cyA}`} fill="none" stroke={accentColor} strokeWidth={stroke}
+                              strokeDasharray={`${circumference * pct} ${circumference}`} strokeLinecap="round" />
+                          </svg>
+                        );
+                      })()}
+                      {ins.vizType === "sparkline" && ins.sparkData && (() => {
+                        const vals = ins.sparkData.map(d => d[1]);
+                        const max = Math.max(...vals);
+                        const w = 100, h = 20;
+                        const step = w / (vals.length - 1 || 1);
+                        const pts = vals.map((v, j) => `${j * step},${h - (v / max) * h}`).join(" ");
+                        return (
+                          <svg width={w} height={h} style={{ display: "block", margin: "4px auto 0" }}>
+                            <polyline points={pts} fill="none" stroke={accentColor} strokeWidth={1.5} opacity={0.6} />
+                            {(() => { const pi = vals.indexOf(max); return <circle cx={pi * step} cy={0} r={2} fill={accentColor} />; })()}
+                          </svg>
+                        );
+                      })()}
+                      {ins.vizType === "monthBars" && ins.monthData && (() => {
+                        const max = Math.max(...ins.monthData.map(m => m.count));
+                        const mLabels = ["J","F","M","A","M","J","J","A","S","O","N","D"];
+                        return (
+                          <div style={{ margin: "4px auto 0" }}>
+                            <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 16 }}>
+                              {ins.monthData.map((m, j) => (
+                                <div key={j} style={{ width: 5, height: Math.max(2, (m.count / max) * 16), background: accentColor, opacity: 0.4 + (m.count / max) * 0.6, borderRadius: 1 }} />
+                              ))}
+                            </div>
+                            <div style={{ display: "flex", gap: 2, marginTop: 2 }}>
+                              {mLabels.map((l, j) => (
+                                <div key={j} style={{ width: 5, textAlign: "center", fontSize: 5, color: "var(--muted)", opacity: 0.5, fontFamily: "Space Mono" }}>{l}</div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      {ins.vizType === "percentile" && (() => {
+                        const pct = ins.pct || 50;
+                        return (
+                          <div style={{ position: "relative", height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden", width: 100, margin: "6px auto 0" }}>
+                            <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, var(--border), ${accentColor})`, borderRadius: 2 }} />
+                          </div>
+                        );
+                      })()}
+                      {ins.vizType === "pills" && ins.pills && (
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
+                          {ins.pills.map((p, j) => (
+                            <span key={j} style={{ padding: "1px 8px", borderRadius: 10, fontSize: 9, letterSpacing: "0.06em", border: `1px solid ${accentColor}55`, color: accentColor, opacity: 0.7 }}>{p}</span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: accentColor, marginTop: 4 }}>{ins.headline.toUpperCase()}</div>
                     </div>
-                    <div style={{ fontSize: isHero ? 16 : 13, lineHeight: isHero ? 1.8 : 1.7, color: "var(--text)", ...(isHero ? { fontFamily: "'Space Mono', monospace" } : {}) }}>{ins.body}</div>
+
+                    {/* BACK — full details + micro-viz */}
+                    <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+                      transform: "rotateY(180deg)", background: bgTintBack, border: `1px solid ${accentColor}33`,
+                      padding: "20px 24px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)` }} />
+                      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", color: accentColor, marginBottom: 8 }}>{ins.headline.toUpperCase()}</div>
+                      <div style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text)", marginBottom: 12 }}>{ins.body}</div>
+
+                      {/* Micro-viz: Arc gauge */}
+                      {ins.vizType === "arc" && (() => {
+                        const pct = Math.min(ins.stat / (ins.vizMax || 100), 1);
+                        const r = 18, cx = 22, cy = 22, stroke = 3;
+                        const circumference = Math.PI * r;
+                        return (
+                          <svg width={44} height={26} style={{ display: "block" }}>
+                            <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="var(--border)" strokeWidth={stroke} />
+                            <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke={accentColor} strokeWidth={stroke}
+                              strokeDasharray={`${circumference * pct} ${circumference}`} strokeLinecap="round" />
+                          </svg>
+                        );
+                      })()}
+
+                      {/* Micro-viz: Delta badge */}
+                      {ins.vizType === "delta" && ins.delta != null && (
+                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", alignSelf: "flex-start",
+                          background: ins.delta > 0 ? "rgba(76,175,80,0.15)" : ins.delta < 0 ? "rgba(255,152,0,0.15)" : "rgba(255,255,255,0.06)",
+                          color: ins.delta > 0 ? "var(--green)" : ins.delta < 0 ? "var(--amber)" : "var(--muted)" }}>
+                          {ins.delta > 0 ? "+" : ""}{ins.delta}% YoY
+                        </span>
+                      )}
+
+                      {/* Micro-viz: Sparkline */}
+
+                      {/* Micro-viz: Month bars */}
+                      {ins.vizType === "monthBars" && ins.monthData && (() => {
+                        const max = Math.max(...ins.monthData.map(m => m.count));
+                        const mLabels = ["J","F","M","A","M","J","J","A","S","O","N","D"];
+                        return (
+                          <div>
+                            <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 22 }}>
+                              {ins.monthData.map((m, j) => (
+                                <div key={j} style={{ flex: 1, height: Math.max(2, (m.count / max) * 22), background: accentColor, opacity: 0.5 + (m.count / max) * 0.5, borderRadius: 1 }} title={`${m.month}: ${m.count}`} />
+                              ))}
+                            </div>
+                            <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
+                              {mLabels.map((l, j) => (
+                                <div key={j} style={{ flex: 1, textAlign: "center", fontSize: 7, color: "var(--muted)", opacity: 0.5, fontFamily: "Space Mono" }}>{l}</div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Micro-viz: Percentile bar */}
+                      {ins.vizType === "percentile" && (() => {
+                        const pct = ins.pct || 50;
+                        return (
+                          <div style={{ position: "relative", height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, var(--border), ${accentColor})`, borderRadius: 3 }} />
+                            <div style={{ position: "absolute", top: -2, left: `${pct}%`, width: 2, height: 10, background: accentColor, borderRadius: 1, transform: "translateX(-50%)" }} />
+                          </div>
+                        );
+                      })()}
+
+                      {/* Micro-viz: Pills */}
+                      {ins.vizType === "pills" && ins.pills && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {ins.pills.map((p, j) => (
+                            <span key={j} style={{ display: "inline-block", padding: "2px 10px", borderRadius: 12, fontSize: 9, letterSpacing: "0.08em", border: `1px solid ${accentColor}`, color: accentColor, opacity: 0.8 }}>{p}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                   </div>
                 </div>
               );
@@ -2257,7 +2989,7 @@ function Results({ data, onReset }) {
 
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px", boxSizing: "border-box", color: "var(--cream-text)" }}>
           {/* Industry Treemap */}
-          <div className="scroll-reveal" style={{ marginBottom: 32 }}>
+          <div className="scroll-reveal" style={{ marginBottom: 64 }}>
             <SectionLabel color="var(--cream-muted)" icon="industry">INDUSTRY DISTRIBUTION</SectionLabel>
             <div className="card" style={{ padding: 24 }}>
               <IndustryTreemap industries={c.industries} total={c.total} />
@@ -2265,7 +2997,7 @@ function Results({ data, onReset }) {
           </div>
 
           {/* Seniority pyramid */}
-          <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 32 }}>
+          <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
             <SectionLabel color="var(--cream-muted)" icon="seniority">SENIORITY PROFILE</SectionLabel>
             <div className="card" style={{ padding: 24, display: "flex", justifyContent: "center" }}>
               <SeniorityPyramid data={sortedSen} total={c.total} />
@@ -2273,7 +3005,7 @@ function Results({ data, onReset }) {
           </div>
 
           {/* Growth Timeline 24 months — month grid */}
-          <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 32 }}>
+          <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
             <SectionLabel color="var(--cream-muted)" icon="growth">GROWTH TIMELINE (24 MONTHS)</SectionLabel>
             <div className="card" style={{ padding: 20 }}>
               <div style={{ fontSize: 11, color: "var(--cream-muted)", marginBottom: 12 }}>Connections added per month — gold border = peak month</div>
@@ -2283,7 +3015,7 @@ function Results({ data, onReset }) {
 
           {/* Year-by-year history */}
           {c.yearHistory.length > 0 && (
-            <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
               <SectionLabel color="var(--cream-muted)" icon="timeline">CONNECTION HISTORY</SectionLabel>
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ fontSize: 11, color: "var(--cream-muted)", marginBottom: 16 }}>Connections added per year{c.peakYear ? ` · Peak: ${c.peakYear[0]}` : ""}</div>
@@ -2305,7 +3037,7 @@ function Results({ data, onReset }) {
           )}
 
           {/* Seasonality & Day-of-Week */}
-          <div className="scroll-reveal" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 32 }}>
+          <div className="scroll-reveal" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 64 }}>
             <div className="card" style={{ padding: 24 }}>
               <SectionLabel color="var(--cream-muted)" icon="calendar">SEASONALITY</SectionLabel>
               <svg viewBox={`0 0 ${12 * 24} 70`} style={{ width: "100%", height: 80, overflow: "visible" }}>
@@ -2322,7 +3054,7 @@ function Results({ data, onReset }) {
             </div>
             <div className="card" style={{ padding: 24 }}>
               <SectionLabel color="var(--cream-muted)" icon="calendar">DAY OF WEEK</SectionLabel>
-              <div style={{ fontSize: 10, color: "var(--cream-muted)", marginBottom: 12 }}>{c.weekdayPct}% weekday</div>
+              <div style={{ fontSize: 11, color: "var(--cream-muted)", marginBottom: 12 }}>{c.weekdayPct}% weekday</div>
               <svg viewBox={`0 0 ${7 * 28} 70`} style={{ width: "100%", height: 72, overflow: "visible" }}>
                 {c.weekdayOrdered.map((d, i) => {
                   const h = (d.count / maxWeekday) * 48;
@@ -2338,44 +3070,28 @@ function Results({ data, onReset }) {
             </div>
           </div>
 
+          {/* Network Growth Area Chart */}
+          <GrowthAreaChart monthMap={c.monthMap} firstYear={c.firstYear} total={c.total} />
+
           {/* Connection Heatmap */}
           <ConnectionHeatmap monthMap={c.monthMap} firstYear={c.firstYear} />
 
-          {/* Top Companies */}
+          {/* Top Companies — Packed Bubble Chart */}
           {c.topCompanies.length > 0 && (
-            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <SectionLabel color="var(--cream-muted)" icon="company">TOP COMPANIES IN YOUR NETWORK</SectionLabel>
                 {c.notable.count > 0 && <span style={{ fontSize: 9, color: "var(--gold)", letterSpacing: "0.1em" }}>{c.notable.count} NOTABLE</span>}
               </div>
-              <div className="card" style={{ padding: 24 }}>
-                {c.topCompanies.map(([company, count], i) => {
-                  const skip = /freelance|self.?employed|independent|consultant/i.test(company);
-                  const domain = skip ? null : companyToDomain(company);
-                  return (
-                    <div key={company} style={{ marginBottom: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, alignItems: "center" }}>
-                        <span style={{ fontSize: 12, color: "var(--cream-text)", display: "flex", alignItems: "center", gap: 8 }}>
-                          {domain && <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`} width={20} height={20} alt="" style={{ borderRadius: 3, objectFit: "contain", flexShrink: 0 }}
-                            onError={(e) => { e.target.style.display = "none"; }} />}
-                          {company}
-                          {NOTABLE_COMPANIES.has(company) && <span style={{ fontSize: 8, marginLeft: 4, padding: "2px 6px", background: "rgba(61,214,200,0.1)", border: "1px solid var(--teal-dim)", color: "var(--teal)", letterSpacing: "0.08em" }}>NOTABLE</span>}
-                        </span>
-                        <span style={{ fontSize: 10, color: "var(--cream-muted)" }}>{count.toLocaleString()} <span style={{ color: "var(--teal)" }}>{Math.round((count / c.total) * 100)}%</span></span>
-                      </div>
-                      <div style={{ height: 3, background: "var(--cream-border)", borderRadius: 2, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${(count / c.topCompanies[0][1]) * 100}%`, background: "var(--teal)", borderRadius: 2, transformOrigin: "left", animation: `barGrowH 0.8s ${i * 0.07}s cubic-bezier(0.22,1,0.36,1) forwards`, transform: "scaleX(0)" }} />
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="card" style={{ padding: 24, overflow: "hidden" }}>
+                <CompanyBubbles companies={c.topCompanies} total={c.total} />
               </div>
             </div>
           )}
 
           {/* Silent Network */}
           {silentNetwork && (
-            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
               <SectionLabel color="var(--cream-muted)" icon="silent">SILENT NETWORK</SectionLabel>
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
@@ -2390,31 +3106,65 @@ function Results({ data, onReset }) {
                     </div>
                   ))}
                 </div>
-              </div>
-              <div style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", padding: "24px 4vw", marginBottom: 20, boxSizing: "border-box" }}>
-                <WaffleChart filledPct={silentNetwork.messagedPct} filledColor="var(--gold)" emptyColor="var(--cream-border)" filledLabel="Messaged" emptyLabel="Silent" />
+                <div style={{ borderTop: "1px solid var(--cream-border)", paddingTop: 20 }}>
+                  <WaffleChart filledPct={silentNetwork.messagedPct} filledColor="var(--gold)" emptyColor="var(--cream-border)" filledLabel="Messaged" emptyLabel="Silent" />
+                </div>
               </div>
               <div className="card" style={{ padding: 24 }}>
                 {silentNetwork.silentPct > 70 && (
                   <div style={{ padding: "12px 16px", background: "rgba(232,160,64,0.06)", border: "1px solid rgba(232,160,64,0.2)", marginBottom: 16 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", letterSpacing: "0.1em", marginBottom: 4 }}>HIGH SILENT RATIO</div>
-                    <div style={{ fontSize: 12, color: "var(--cream-text)", lineHeight: 1.7 }}>{silentNetwork.silentPct}% of your connections have never exchanged a message with you.</div>
+                    <div style={{ fontSize: 13, color: "var(--cream-text)", lineHeight: 1.7 }}>{silentNetwork.silentPct}% of your connections have never exchanged a message with you.</div>
                   </div>
                 )}
                 {silentNetwork.silentSenior.length > 0 && (
                   <>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>SENIOR CONNECTIONS YOU'VE NEVER MESSAGED</div>
-                    {silentNetwork.silentSenior.map((p, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: i < silentNetwork.silentSenior.length - 1 ? "1px solid var(--cream-border)" : "none" }}>
-                        <div>
-                          <div style={{ fontSize: 12, color: "var(--cream-text)", fontWeight: 700 }}>{p.name}</div>
-                          <div style={{ fontSize: 10, color: "var(--cream-muted)" }}>{p.title}{p.company ? ` · ${p.company}` : ""}</div>
-                        </div>
-                      </div>
-                    ))}
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 16 }}>SENIOR CONNECTIONS YOU'VE NEVER MESSAGED</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
+                      {silentNetwork.silentSenior.map((p, i) => {
+                        const initials = p.name.split(" ").map(w => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+                        const domain = p.company ? companyToDomain(p.company) : null;
+                        const hues = ["var(--gold)", "var(--teal)", "var(--rose)", "var(--amber)", "#6b8aed", "#9b6bed"];
+                        const accent = hues[i % hues.length];
+                        return (
+                          <div key={i} style={{
+                            display: "flex", alignItems: "center", gap: 12,
+                            padding: "14px 16px",
+                            background: "var(--cream)",
+                            border: "1px solid var(--cream-border)",
+                            transition: "border-color 0.2s, box-shadow 0.2s",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.boxShadow = `0 2px 12px ${accent}22`; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--cream-border)"; e.currentTarget.style.boxShadow = "none"; }}
+                          >
+                            <div style={{
+                              width: 40, height: 40, borderRadius: "50%",
+                              background: `linear-gradient(135deg, ${accent}33, ${accent}11)`,
+                              border: `1.5px solid ${accent}55`,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 13, fontWeight: 700, color: accent,
+                              fontFamily: "'Space Mono', monospace",
+                              flexShrink: 0,
+                            }}>
+                              {initials}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, color: "var(--cream-text)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                              <div style={{ fontSize: 11, color: "var(--cream-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 2 }}>{p.title}</div>
+                              {p.company && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
+                                  {domain && <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`} width={12} height={12} alt="" style={{ opacity: 0.7 }} />}
+                                  <span style={{ fontSize: 10, color: accent, letterSpacing: "0.05em", fontWeight: 600 }}>{p.company}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </>
                 )}
-                <div style={{ fontSize: 12, color: "var(--cream-muted)", lineHeight: 1.7, marginTop: 16 }}>
+                <div style={{ fontSize: 13, color: "var(--cream-muted)", lineHeight: 1.7, marginTop: 16 }}>
                   You've messaged {silentNetwork.messagedPct}% of your {silentNetwork.total} connections. The rest are latent ties.
                 </div>
               </div>
@@ -2423,7 +3173,7 @@ function Results({ data, onReset }) {
 
           {/* Events */}
           {events && (
-            <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
               <SectionLabel color="var(--cream-muted)" icon="event">LINKEDIN EVENTS</SectionLabel>
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(events.byStatus.length + 1, 4)},1fr)`, gap: 10, marginBottom: 16 }}>
@@ -2440,11 +3190,11 @@ function Results({ data, onReset }) {
                 </div>
                 {events.recent.length > 0 && (
                   <>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>RECENT EVENTS</div>
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>RECENT EVENTS</div>
                     {events.recent.map((e, i) => (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: i < events.recent.length - 1 ? "1px solid var(--cream-border)" : "none", gap: 16 }}>
-                        <div style={{ flex: 1, fontSize: 12, color: "var(--cream-text)" }}>{e.name}</div>
-                        <span style={{ fontSize: 8, padding: "2px 6px", border: `1px solid ${e.status === "approved" ? "var(--green)" : "var(--cream-border)"}`, color: e.status === "approved" ? "var(--green)" : "var(--cream-muted)", letterSpacing: "0.08em" }}>{e.status.toUpperCase()}</span>
+                        <div style={{ flex: 1, fontSize: 13, color: "var(--cream-text)" }}>{e.name}</div>
+                        <span style={{ fontSize: 9, padding: "2px 6px", border: `1px solid ${e.status === "approved" ? "var(--green)" : "var(--cream-border)"}`, color: e.status === "approved" ? "var(--green)" : "var(--cream-muted)", letterSpacing: "0.08em" }}>{e.status.toUpperCase()}</span>
                       </div>
                     ))}
                   </>
@@ -2455,17 +3205,17 @@ function Results({ data, onReset }) {
 
           {/* Invitations */}
           {invitations && (
-            <div className="scroll-reveal" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal" style={{ marginBottom: 64 }}>
               <SectionLabel color="var(--cream-muted)" icon="outreach">OUTREACH STYLE</SectionLabel>
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
                   {[
-                    { n: invitations.outgoing, suf: "", l: "Sent by you" },
-                    { n: invitations.incoming, suf: "", l: "Received" },
-                    { n: invitations.personalisedPct, suf: "%", l: "With a note" },
+                    { n: invitations.outgoing, suf: "", l: "Sent", color: "var(--gold)" },
+                    { n: invitations.personalisedPct, suf: "%", l: "With a note", color: "var(--gold)" },
+                    { n: invitations.incoming, suf: "", l: "Received", color: "var(--teal)" },
                   ].map((s, i) => (
                     <div key={i} style={{ padding: "12px 10px", background: "var(--cream)", border: "1px solid var(--cream-border)", textAlign: "center" }}>
-                      <div className="serif" style={{ fontSize: 22, color: i === 2 ? "var(--teal)" : "var(--gold)", lineHeight: 1, marginBottom: 4 }}><CountUp value={s.n} suffix={s.suf} /></div>
+                      <div className="serif" style={{ fontSize: 22, color: s.color, lineHeight: 1, marginBottom: 4 }}><CountUp value={s.n} suffix={s.suf} /></div>
                       <div style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>{s.l.toUpperCase()}</div>
                     </div>
                   ))}
@@ -2492,7 +3242,7 @@ function Results({ data, onReset }) {
                       const cp2x = 200 + Math.sin(rad) * (len * 0.65);
                       const cp2y = originY + dir * Math.cos(rad) * (len * 0.75);
                       const closeness = 1 - Math.abs(t - 0.5) * 2;
-                      const sw = 1.5 + closeness * 4;
+                      const sw = 3 + closeness * 8;
                       const op = 0.2 + closeness * 0.6;
                       lines.push({ d: `M 200 ${originY} C ${cp1x.toFixed(0)} ${cp1y.toFixed(0)}, ${cp2x.toFixed(0)} ${cp2y.toFixed(0)}, ${endX.toFixed(0)} ${endY.toFixed(0)}`, sw, op, delay: i * 0.04 });
                     }
@@ -2501,10 +3251,10 @@ function Results({ data, onReset }) {
                   const sentLines = makeFan(sentCount, 280, -1);
                   const recLines = makeFan(recCount, 20, 1);
                   return (
-                    <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 12, margin: "48px 0 48px", alignItems: "center" }}>
                       {/* SENT fan — gold ribbons growing upward from bottom */}
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <svg viewBox="0 0 400 300" style={{ width: "100%", height: "auto", display: "block" }}>
+                        <svg viewBox="0 0 400 300" style={{ width: "100%", height: "auto", display: "block", minHeight: 400 }}>
                           <defs>
                             <linearGradient id="sentFanG" x1="0.5" y1="1" x2="0.5" y2="0"><stop offset="0%" stopColor="var(--gold)" stopOpacity="0.9" /><stop offset="100%" stopColor="var(--gold)" stopOpacity="0.25" /></linearGradient>
                           </defs>
@@ -2516,20 +3266,18 @@ function Results({ data, onReset }) {
                           <circle cx="200" cy="280" r="8" fill="var(--gold)" opacity="0.3" style={{ animation: "glowPulseStatic 3s ease infinite" }} />
                           <circle cx="200" cy="280" r="4" fill="var(--gold)" opacity="0.7" />
                         </svg>
-                        <div style={{ fontSize: 10, fontFamily: "Space Mono", fontWeight: 700, letterSpacing: "0.12em", color: "var(--gold)", marginTop: -4,
+                        <div style={{ fontSize: 11, fontFamily: "Space Mono", fontWeight: 700, letterSpacing: "0.12em", color: "var(--gold)", marginTop: -4,
                           animation: "fadeIn 0.5s 1s forwards", opacity: 0 }}>SENT {outPct}%</div>
-                        <div style={{ fontSize: 9, color: "var(--cream-muted)", marginTop: 2 }}>{invitations.outgoing} invitations</div>
                       </div>
 
                       {/* Divider */}
-                      <div style={{ width: 1, height: 180, background: "var(--cream-border)", opacity: 0.3, flexShrink: 0 }} />
+                      <div style={{ width: 1, height: 300, background: "var(--cream-border)", opacity: 0.3, flexShrink: 0, alignSelf: "center" }} />
 
                       {/* RECEIVED fan — teal ribbons growing downward from top */}
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <div style={{ fontSize: 10, fontFamily: "Space Mono", fontWeight: 700, letterSpacing: "0.12em", color: "var(--teal)", marginBottom: -4,
+                        <div style={{ fontSize: 11, fontFamily: "Space Mono", fontWeight: 700, letterSpacing: "0.12em", color: "var(--teal)", marginBottom: -4,
                           animation: "fadeIn 0.5s 1.2s forwards", opacity: 0 }}>RECEIVED {inPct}%</div>
-                        <div style={{ fontSize: 9, color: "var(--cream-muted)", marginBottom: 2 }}>{invitations.incoming} invitations</div>
-                        <svg viewBox="0 0 400 300" style={{ width: "100%", height: "auto", display: "block" }}>
+                        <svg viewBox="0 0 400 300" style={{ width: "100%", height: "auto", display: "block", minHeight: 400 }}>
                           <defs>
                             <linearGradient id="recFanG" x1="0.5" y1="0" x2="0.5" y2="1"><stop offset="0%" stopColor="var(--teal)" stopOpacity="0.8" /><stop offset="100%" stopColor="var(--teal)" stopOpacity="0.2" /></linearGradient>
                           </defs>
@@ -2545,7 +3293,7 @@ function Results({ data, onReset }) {
                     </div>
                   );
                 })()}
-                <div style={{ fontSize: 12, color: "var(--cream-muted)", lineHeight: 1.7 }}>
+                <div style={{ fontSize: 13, color: "var(--cream-muted)", lineHeight: 1.7 }}>
                   {invitations.outgoing > invitations.incoming
                     ? `You're a deliberate builder --- ${invitations.outgoing} outbound invitations vs ${invitations.incoming} inbound. ${invitations.personalisedPct > 50 ? "And you personalise most of your outreach --- that matters." : "Consider adding a personal note to more requests."}`
                     : `People are finding you --- ${invitations.incoming} inbound invitations vs ${invitations.outgoing} outbound. Your profile is doing the work.`}
@@ -2556,43 +3304,72 @@ function Results({ data, onReset }) {
 
           {/* Messages */}
           {messages && (
-            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
               <SectionLabel color="var(--cream-muted)" icon="messages">MESSAGES</SectionLabel>
               <div className="card" style={{ padding: 24 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(100px,1fr))", gap: 10, marginBottom: 20 }}>
+                {/* Stat bubbles — chat conversation style */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24, maxWidth: 520 }}>
                   {[
-                    { n: messages.total, l: "Total messages" },
-                    { n: messages.uniquePeople, l: "People messaged" },
-                    { n: messages.uniqueConvos, l: "Conversations" },
-                    { n: messages.avgDepth, l: "Avg msgs/thread" },
-                    { n: messages.deepConvos, l: "Deep threads (10+)" },
-                    { n: messages.longestConvo, l: "Longest thread" },
-                  ].map((s, i) => (
-                    <div key={i} style={{ padding: "12px 10px", background: "var(--cream)", border: "1px solid var(--cream-border)", textAlign: "center" }}>
-                      <div className="serif" style={{ fontSize: 20, color: i >= 3 ? "var(--teal)" : "var(--gold)", lineHeight: 1, marginBottom: 4 }}><CountUp value={s.n} /></div>
-                      <div style={{ fontSize: 8, color: "var(--cream-muted)", letterSpacing: "0.08em" }}>{s.l.toUpperCase()}</div>
-                    </div>
-                  ))}
+                    { n: messages.total, l: "Total messages", side: "right", color: "gold" },
+                    { n: messages.uniqueConvos, l: "Conversations", side: "left", color: "teal" },
+                    { n: messages.avgDepth, l: "Avg msgs/thread", side: "right", color: "gold" },
+                    { n: messages.deepConvos, l: "Deep threads (10+)", side: "left", color: "teal" },
+                    { n: messages.longestConvo, l: "Longest thread", side: "right", color: "gold" },
+                  ].map((s, i) => {
+                    const isRight = s.side === "right";
+                    const bg = isRight ? "rgba(212,168,67,0.08)" : "rgba(61,214,200,0.06)";
+                    const border = isRight ? "rgba(212,168,67,0.2)" : "rgba(61,214,200,0.15)";
+                    const numColor = isRight ? "var(--gold)" : "var(--teal)";
+                    const radius = isRight ? "14px 14px 4px 14px" : "14px 14px 14px 4px";
+                    return (
+                      <div key={i} style={{ display: "flex", justifyContent: isRight ? "flex-end" : "flex-start" }}>
+                        <div style={{
+                          display: "flex", alignItems: "baseline", gap: 10, padding: "10px 18px",
+                          background: bg, border: `1px solid ${border}`, borderRadius: radius,
+                          animation: `floatIn 0.3s ${i * 0.08}s ease forwards`, opacity: 0,
+                        }}>
+                          <span className="serif" style={{ fontSize: 20, color: numColor, lineHeight: 1 }}><CountUp value={s.n} /></span>
+                          <span style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.08em" }}>{s.l.toUpperCase()}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* Sent vs Received proportional bar */}
+                {/* Sent vs Received — chat bubbles */}
                 {messages.sent > 0 && messages.received > 0 && (() => {
                   const sentPct = Math.round((messages.sent / messages.total) * 100);
                   const recPct = 100 - sentPct;
                   return (
-                    <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 8 }}>SENT vs RECEIVED</div>
-                      <div style={{ display: "flex", height: 28, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
-                        <div style={{ width: `${sentPct}%`, background: "var(--gold)", opacity: 0.7, display: "flex", alignItems: "center", justifyContent: "center", transformOrigin: "left", animation: "barGrowH 0.8s 0.2s cubic-bezier(0.22,1,0.36,1) forwards", transform: "scaleX(0)" }}>
-                          <span style={{ fontSize: 9, fontFamily: "Space Mono", color: "var(--bg)", fontWeight: 700, letterSpacing: "0.05em" }}>SENT {sentPct}%</span>
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>SENT vs RECEIVED</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {/* Sent bubble */}
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <div style={{
+                            width: `${Math.max(sentPct, 20)}%`, padding: "10px 16px",
+                            background: "rgba(212,168,67,0.12)", border: "1px solid rgba(212,168,67,0.25)",
+                            borderRadius: "12px 12px 4px 12px",
+                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                            transformOrigin: "right", animation: "barGrowH 0.8s 0.2s cubic-bezier(0.22,1,0.36,1) forwards", transform: "scaleX(0)",
+                          }}>
+                            <span style={{ fontSize: 9, fontFamily: "Space Mono", color: "var(--cream-muted)", letterSpacing: "0.05em" }}>SENT</span>
+                            <span style={{ fontSize: 13, fontFamily: "Space Mono", color: "var(--gold)", fontWeight: 700 }}>{messages.sent.toLocaleString()} ({sentPct}%)</span>
+                          </div>
                         </div>
-                        <div style={{ width: `${recPct}%`, background: "var(--teal)", opacity: 0.5, display: "flex", alignItems: "center", justifyContent: "center", transformOrigin: "right", animation: "barGrowH 0.8s 0.4s cubic-bezier(0.22,1,0.36,1) forwards", transform: "scaleX(0)" }}>
-                          <span style={{ fontSize: 9, fontFamily: "Space Mono", color: "var(--bg)", fontWeight: 700, letterSpacing: "0.05em" }}>RECEIVED {recPct}%</span>
+                        {/* Received bubble */}
+                        <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                          <div style={{
+                            width: `${Math.max(recPct, 20)}%`, padding: "10px 16px",
+                            background: "rgba(61,214,200,0.08)", border: "1px solid rgba(61,214,200,0.2)",
+                            borderRadius: "12px 12px 12px 4px",
+                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                            transformOrigin: "left", animation: "barGrowH 0.8s 0.4s cubic-bezier(0.22,1,0.36,1) forwards", transform: "scaleX(0)",
+                          }}>
+                            <span style={{ fontSize: 13, fontFamily: "Space Mono", color: "var(--teal)", fontWeight: 700 }}>{messages.received.toLocaleString()} ({recPct}%)</span>
+                            <span style={{ fontSize: 9, fontFamily: "Space Mono", color: "var(--cream-muted)", letterSpacing: "0.05em" }}>RECEIVED</span>
+                          </div>
                         </div>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "var(--cream-muted)" }}>
-                        <span>{messages.sent.toLocaleString()} sent</span>
-                        <span>{messages.received.toLocaleString()} received</span>
                       </div>
                     </div>
                   );
@@ -2601,14 +3378,15 @@ function Results({ data, onReset }) {
                 {messages.yearHistory.length > 0 && (() => {
                   const maxYearMsg = Math.max(...messages.yearHistory.map(([, ct]) => ct), 1);
                   return (
-                    <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>MESSAGE ACTIVITY BY YEAR</div>
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>MESSAGE ACTIVITY BY YEAR</div>
                       <svg viewBox={`0 0 ${messages.yearHistory.length * 36} 80`} style={{ width: "100%", height: 100, overflow: "visible" }}>
                         {messages.yearHistory.map(([year, count], i) => {
                           const h = (count / maxYearMsg) * 54;
                           return (
                             <g key={i}>
-                              <rect x={i * 36 + 2} y={60 - h} width={28} height={h} fill="var(--teal)" opacity="0.65" style={{ transformOrigin: `${i * 36 + 16}px 60px`, animation: `barGrow 0.6s ${i * 0.05}s cubic-bezier(0.22,1,0.36,1) forwards`, transform: "scaleY(0)" }} />
+                              <rect x={i * 36 + 2} y={60 - h} width={28} height={h} rx="6" ry="6" fill="var(--teal)" opacity="0.55"
+                                style={{ transformOrigin: `${i * 36 + 16}px 60px`, animation: `barGrow 0.6s ${i * 0.05}s cubic-bezier(0.22,1,0.36,1) forwards`, transform: "scaleY(0)" }} />
                               <text x={i * 36 + 16} y={74} textAnchor="middle" fill="var(--cream-muted)" fontSize="6" fontFamily="Space Mono">{year.slice(2)}</text>
                               {count > maxYearMsg * 0.15 && <text x={i * 36 + 16} y={60 - h - 4} textAnchor="middle" fill="var(--teal)" fontSize="6" fontFamily="Space Mono">{count}</text>}
                             </g>
@@ -2621,13 +3399,51 @@ function Results({ data, onReset }) {
 
                 {messages.topConversations.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>MOST ACTIVE CONVERSATIONS</div>
-                    {messages.topConversations.map(([name, count], i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < messages.topConversations.length - 1 ? "1px solid var(--cream-border)" : "none" }}>
-                        <span style={{ fontSize: 13, color: "var(--cream-text)" }}>{name}</span>
-                        <span style={{ fontSize: 11, color: "var(--gold)" }}>{count} messages</span>
-                      </div>
-                    ))}
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>MOST ACTIVE CONVERSATIONS</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {messages.topConversations.map(([name, count], i) => {
+                        const isRight = i % 2 === 0;
+                        const bg = isRight ? "rgba(212,168,67,0.10)" : "rgba(61,214,200,0.08)";
+                        const color = isRight ? "var(--gold)" : "var(--teal)";
+                        const initials = name.split(" ").map(w => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+                        return (
+                          <div key={i} style={{ display: "flex", justifyContent: isRight ? "flex-end" : "flex-start",
+                            animation: `floatIn 0.3s ${0.1 * i}s ease forwards`, opacity: 0 }}>
+                            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, maxWidth: "75%",
+                              flexDirection: isRight ? "row" : "row" }}>
+                              {/* Avatar — left side only */}
+                              {!isRight && (
+                                <div style={{
+                                  width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                                  background: "rgba(61,214,200,0.1)", border: "1px solid rgba(61,214,200,0.25)",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  fontSize: 9, fontWeight: 700, color: "var(--teal)", fontFamily: "Space Mono",
+                                }}>{initials}</div>
+                              )}
+                              {/* Bubble */}
+                              <div style={{
+                                padding: "8px 14px", position: "relative", flex: 1,
+                                background: bg, textAlign: isRight ? "right" : "left",
+                                borderRadius: isRight ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                                boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                              }}>
+                                <div style={{ fontSize: 12, color: "var(--cream-text)", fontWeight: 600, lineHeight: 1.3 }}>{name}</div>
+                                <div style={{ fontSize: 9, color, fontFamily: "Space Mono", marginTop: 2, opacity: 0.8 }}>{count} messages</div>
+                              </div>
+                              {/* Avatar — right side only */}
+                              {isRight && (
+                                <div style={{
+                                  width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                                  background: "rgba(212,168,67,0.12)", border: "1px solid rgba(212,168,67,0.3)",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  fontSize: 9, fontWeight: 700, color: "var(--gold)", fontFamily: "Space Mono",
+                                }}>{initials}</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2636,7 +3452,7 @@ function Results({ data, onReset }) {
 
           {/* Dormant Connections */}
           {c.dormant > 0 && (
-            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
               <div className="card" style={{ padding: "16px 20px", display: "flex", gap: 16 }}>
                 <div style={{ width: 3, background: "var(--amber)", flexShrink: 0, borderRadius: 2 }} />
                 <div>
@@ -2658,16 +3474,9 @@ function Results({ data, onReset }) {
         <ChapterOpener number="03" title={<>Your <em style={{ color: "var(--gold)" }}>Reputation</em></>} subtitle="Skills, endorsements, career history, recommendations, and how the professional world sees you." />
 
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px", boxSizing: "border-box" }}>
-          {/* Skills Constellation */}
-          {skills && skills.totalEndorsements > 0 && (
-            <div className="scroll-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
-              <SkillsConstellation skills={skills} />
-            </div>
-          )}
-
-          {/* Skills stat cards */}
+          {/* Skills stat cards — moved to top of chapter */}
           {skills && (
-            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal" style={{ marginBottom: 64 }}>
               <SectionLabel icon="skills">SKILLS & ENDORSEMENTS</SectionLabel>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
                 {[
@@ -2676,25 +3485,37 @@ function Results({ data, onReset }) {
                   { v: skills.uniqueEndorsers, l: "Unique endorsers" },
                 ].map((s, i) => (
                   <div key={i} className="card" style={{ padding: "12px 10px", textAlign: "center" }}>
-                    <div className="serif" style={{ fontSize: 24, color: "var(--gold)", lineHeight: 1, marginBottom: 4 }}><CountUp value={s.v} /></div>
+                    <div className="serif" style={{ fontSize: 22, color: "var(--gold)", lineHeight: 1, marginBottom: 4 }}><CountUp value={s.v} /></div>
                     <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em" }}>{s.l.toUpperCase()}</div>
                   </div>
                 ))}
               </div>
-              {skills.topSkills.length > 0 && (
-                <div style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", padding: "40px 0", position: "relative" }}>
-                  <div style={{ textAlign: "center", marginBottom: 24 }}>
-                    <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--muted)", marginBottom: 8 }}>TOP ENDORSED SKILLS</div>
-                  </div>
-                  <SkillsRadialBar skills={skills.topSkills} total={skills.totalEndorsements} />
+            </div>
+          )}
+
+          {/* Skills Constellation */}
+          {skills && skills.totalEndorsements > 0 && (
+            <div className="scroll-reveal scroll-reveal-delay-1" style={{ textAlign: "center", marginBottom: 80 }}>
+              <div style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--muted)", marginBottom: 8 }}>ENDORSEMENTS</div>
+              <SkillsConstellation skills={skills} />
+            </div>
+          )}
+
+          {/* Top Endorsed Skills — Radial Bar */}
+          {skills && skills.topSkills.length > 0 && (
+            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
+              <div style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", padding: "40px 0", position: "relative" }}>
+                <div style={{ textAlign: "center", marginBottom: 24 }}>
+                  <div style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--muted)", marginBottom: 8 }}>TOP ENDORSED SKILLS</div>
                 </div>
-              )}
+                <SkillsRadialBar skills={skills.topSkills} total={skills.totalEndorsements} />
+              </div>
             </div>
           )}
 
           {/* Endorsement Reciprocity */}
           {endorsementReciprocity && (
-            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
               <SectionLabel icon="reciprocity">ENDORSEMENT RECIPROCITY</SectionLabel>
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
@@ -2712,10 +3533,10 @@ function Results({ data, onReset }) {
                 <ReciprocityArcs data={endorsementReciprocity} />
                 {endorsementReciprocity.mutualChampions.length > 0 && (
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 12 }}>MUTUAL CHAMPIONS</div>
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 12 }}>MUTUAL CHAMPIONS</div>
                     {endorsementReciprocity.mutualChampions.map((p, i) => (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < endorsementReciprocity.mutualChampions.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <span style={{ fontSize: 12, color: "var(--text)" }}>{p.name}</span>
+                        <span style={{ fontSize: 13, color: "var(--text)" }}>{p.name}</span>
                         <span style={{ fontSize: 11, color: "var(--green)" }}>{p.count} endorsements</span>
                       </div>
                     ))}
@@ -2723,10 +3544,10 @@ function Results({ data, onReset }) {
                 )}
                 {endorsementReciprocity.unreturned.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 12 }}>ENDORSED YOU --- HAVEN'T ENDORSED BACK</div>
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 12 }}>ENDORSED YOU --- HAVEN'T ENDORSED BACK</div>
                     {endorsementReciprocity.unreturned.map((p, i) => (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < endorsementReciprocity.unreturned.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <span style={{ fontSize: 12, color: "var(--text)" }}>{p.name}</span>
+                        <span style={{ fontSize: 13, color: "var(--text)" }}>{p.name}</span>
                         <span style={{ fontSize: 11, color: "var(--amber)" }}>{p.count} given to you</span>
                       </div>
                     ))}
@@ -2736,94 +3557,360 @@ function Results({ data, onReset }) {
             </div>
           )}
 
-          {/* Career Timeline */}
-          {positions && positions.length > 0 && (
-            <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 32 }}>
-              <SectionLabel icon="career">CAREER TIMELINE</SectionLabel>
-              <div className="card" style={{ padding: 24 }}>
-                <div style={{ borderLeft: "2px solid var(--gold-dim)", marginLeft: 8, paddingLeft: 24 }}>
-                  {positions.map((p, i) => {
-                    const started = p["Started On"] || "";
-                    const finished = p["Finished On"] || "Present";
-                    return (
-                      <div key={i} style={{ marginBottom: 24, position: "relative" }}>
-                        <div style={{ position: "absolute", left: -33, top: 4, width: 12, height: 12, borderRadius: "50%", background: i === 0 ? "var(--gold)" : "var(--surface)", border: `2px solid ${i === 0 ? "var(--gold)" : "var(--gold-dim)"}` }} />
-                        <div style={{ fontSize: 10, color: "var(--gold)", letterSpacing: "0.1em", marginBottom: 4 }}>{started} --- {finished}</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 2 }}>{p["Title"] || ""}</div>
-                        <div style={{ fontSize: 12, color: "var(--muted)" }}>{p["Company Name"] || ""}{p["Location"] ? ` · ${p["Location"]}` : ""}</div>
-                      </div>
-                    );
-                  })}
+          {/* Career Timeline — Lollipop Chart */}
+          {positions && positions.length > 0 && (() => {
+            const now = new Date();
+            const parseDate = (s) => {
+              if (!s) return now;
+              const parts = s.split(" ");
+              const months = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+              return new Date(parseInt(parts[1]) || now.getFullYear(), months[parts[0]] ?? 0);
+            };
+            const roles = positions.map((p, i) => {
+              const start = parseDate(p["Started On"]);
+              const end = p["Finished On"] ? parseDate(p["Finished On"]) : now;
+              const months = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24 * 30.44)));
+              return { title: p["Title"] || "", company: p["Company Name"] || "", location: p["Location"] || "", started: p["Started On"] || "", finished: p["Finished On"] || "Present", months, isCurrent: !p["Finished On"], startDate: start, i };
+            }).sort((a, b) => a.startDate - b.startDate); // earliest on left
+            const maxMonths = Math.max(...roles.map(r => r.months));
+            const minR = 18, maxR = 52;
+            const W = 900, baseY = 500, topPad = 120, stemMin = 80;
+            const colW = W / roles.length;
+
+            return (
+              <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
+                <SectionLabel icon="career">CAREER TIMELINE</SectionLabel>
+                <div className="card" style={{ padding: "32px 16px 24px", overflow: "hidden" }}>
+                  <svg viewBox={`0 0 ${W} ${baseY + 30}`} style={{ width: "100%", height: "auto" }}>
+                    <defs>
+                      <radialGradient id="lolliGrad"><stop offset="0%" stopColor="var(--gold)" stopOpacity="0.35" /><stop offset="100%" stopColor="var(--gold)" stopOpacity="0.08" /></radialGradient>
+                      <filter id="lolliGlow"><feGaussianBlur stdDeviation="3" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+                    </defs>
+                    {/* Baseline */}
+                    <line x1={20} y1={baseY} x2={W - 20} y2={baseY} stroke="var(--border)" strokeWidth="1" opacity="0.2" />
+                    {/* Lollipop stems and bubbles */}
+                    {roles.map((r, i) => {
+                      const cx = colW * i + colW / 2;
+                      const bubbleR = minR + (r.months / maxMonths) * (maxR - minR);
+                      const stemH = stemMin + (r.months / maxMonths) * (baseY - topPad - stemMin - maxR);
+                      const bubbleY = baseY - stemH;
+                      const years = (r.months / 12).toFixed(1).replace(/\.0$/, "");
+                      const yearsLabel = r.months >= 12 ? `${years}y` : `${r.months}m`;
+                      return (
+                        <g key={i} style={{ animation: `floatIn 0.6s ${0.1 + i * 0.08}s ease forwards`, opacity: 0 }}>
+                          {/* Stem */}
+                          <line x1={cx} y1={baseY} x2={cx} y2={bubbleY + bubbleR} stroke="var(--gold-dim)" strokeWidth="2" opacity="0.3"
+                            strokeDasharray={stemH} strokeDashoffset={stemH}
+                            style={{ animation: `drawIn 0.8s ${0.2 + i * 0.08}s ease forwards` }} />
+                          {/* Bubble */}
+                          <circle cx={cx} cy={bubbleY} r={bubbleR} fill="url(#lolliGrad)" stroke={r.isCurrent ? "var(--gold)" : "var(--gold-dim)"} strokeWidth={r.isCurrent ? 1.5 : 0.5}
+                            filter={r.isCurrent ? "url(#lolliGlow)" : "none"} />
+                          {r.isCurrent && <circle cx={cx} cy={bubbleY} r={bubbleR} fill="none" stroke="var(--gold)" strokeWidth="0.5" opacity="0.3"
+                            style={{ animation: "pulseNode 3s ease infinite" }} />}
+                          {/* Tenure inside bubble */}
+                          <text x={cx} y={bubbleY + 3} textAnchor="middle" fill="var(--gold)" fontSize={bubbleR > 35 ? 13 : 11} fontFamily="Space Mono" fontWeight="700">{yearsLabel}</text>
+                          {/* Role labels above bubble */}
+                          {r.isCurrent && (
+                            <text x={cx} y={bubbleY - bubbleR - 38} textAnchor="middle" fill="var(--gold)" fontSize="7" fontFamily="Space Mono" letterSpacing="1.5">NOW</text>
+                          )}
+                          <text x={cx} y={bubbleY - bubbleR - 24} textAnchor="middle" fill="var(--text)" fontSize="8" fontFamily="Space Mono" fontWeight="700">
+                            {r.company.length > 16 ? r.company.slice(0, 15) + "…" : r.company}
+                          </text>
+                          <text x={cx} y={bubbleY - bubbleR - 12} textAnchor="middle" fill="var(--muted)" fontSize="7" fontFamily="Space Mono">
+                            {r.title.length > 20 ? r.title.slice(0, 19) + "…" : r.title}
+                          </text>
+                          {/* Year on baseline */}
+                          <text x={cx} y={baseY + 14} textAnchor="middle" fill="var(--gold)" fontSize="8" fontFamily="Space Mono" opacity="0.6">
+                            {r.started.split(" ").pop() || ""}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
                 </div>
               </div>
-            </div>
+            );
+          })()}
+
+          {/* Career Journey Map */}
+          {positions && positions.length > 0 && (
+            <CareerMap positions={positions} />
           )}
 
           {/* Education & Certifications */}
           {((education && education.length > 0) || (certifications && certifications.length > 0)) && (
-            <div className="scroll-reveal" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal" style={{ marginBottom: 64 }}>
               <SectionLabel icon="education">EDUCATION & CREDENTIALS</SectionLabel>
-              <div className="card" style={{ padding: 24 }}>
-                {education && education.map((e, i) => (
-                  <div key={`ed${i}`} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < education.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{e["Degree Name"] || ""}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted)" }}>{e["School Name"] || ""}{e["Start Date"] ? ` · ${e["Start Date"]}--${e["End Date"] || ""}` : ""}</div>
+
+              {/* Degrees — upward arc */}
+              {education && education.length > 0 && (() => {
+                const sorted = [...education].sort((a, b) => {
+                  const ya = parseInt(a["Start Date"]) || 0, yb = parseInt(b["Start Date"]) || 0;
+                  return ya - yb;
+                });
+                const n = sorted.length;
+                const W = 800, H = 300, padL = 50, padR = 50, padTop = 70, padBot = 40;
+                const baselineY = H - padBot;
+                const arcH = H - padTop - padBot;
+                const chartW = W - padL - padR;
+
+                // Parse years, use midpoint of each degree for node placement
+                const items = sorted.map(e => {
+                  const s = parseInt(e["Start Date"]) || 0;
+                  const eEnd = parseInt(e["End Date"]) || new Date().getFullYear();
+                  return { ...e, startYr: s, endYr: eEnd, midYr: (s + eEnd) / 2 };
+                });
+                const allYears = items.flatMap(d => [d.startYr, d.endYr]);
+                const minYear = Math.min(...allYears);
+                const maxYear = Math.max(...allYears);
+                const yearSpan = maxYear - minYear || 1;
+                const xOfYear = (yr) => padL + ((yr - minYear) / yearSpan) * chartW;
+
+                // Arc nodes placed at midpoint of each degree's duration
+                const pts = items.map((d, i) => {
+                  const t = (d.midYr - minYear) / yearSpan;
+                  const x = padL + t * chartW;
+                  const arcY = padTop + arcH * (1 - (0.1 + 0.9 * (i / Math.max(n - 1, 1))));
+                  return { x, y: arcY };
+                });
+
+                // Smooth curve
+                let curvePath = `M ${pts[0].x} ${pts[0].y}`;
+                if (pts.length === 2) {
+                  curvePath += ` L ${pts[1].x} ${pts[1].y}`;
+                } else {
+                  for (let i = 0; i < pts.length - 1; i++) {
+                    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+                    curvePath += ` C ${p1.x + (p2.x - p0.x) / 6} ${p1.y + (p2.y - p0.y) / 6}, ${p2.x - (p3.x - p1.x) / 6} ${p2.y - (p3.y - p1.y) / 6}, ${p2.x} ${p2.y}`;
+                  }
+                }
+
+                // Year scale — show every 5 years + first and last
+                const tickInterval = yearSpan > 20 ? 5 : yearSpan > 10 ? 5 : yearSpan > 5 ? 2 : 1;
+                const scaleTicks = [];
+                const firstTick = Math.ceil(minYear / tickInterval) * tickInterval;
+                for (let y = firstTick; y <= maxYear; y += tickInterval) scaleTicks.push(y);
+                if (!scaleTicks.includes(minYear)) scaleTicks.unshift(minYear);
+                if (!scaleTicks.includes(maxYear)) scaleTicks.push(maxYear);
+
+                const hues = ["var(--gold)", "var(--teal)", "#d4684a", "#6b8aed", "#9b6bed"];
+
+                return (
+                  <div className="card" style={{ padding: "28px 24px 16px", marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 8 }}>ACADEMIC JOURNEY</div>
+                    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", overflow: "visible" }}>
+                      <defs>
+                        <linearGradient id="arcGrad" x1="0" y1="1" x2="1" y2="0">
+                          <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.15" />
+                          <stop offset="100%" stopColor="var(--gold)" stopOpacity="0.5" />
+                        </linearGradient>
+                      </defs>
+
+                      {/* Duration shading — subtle bars just above the baseline */}
+                      {items.map((d, i) => {
+                        const x1 = xOfYear(d.startYr), x2 = xOfYear(d.endYr);
+                        const barH = 14;
+                        const yPos = baselineY - barH - i * (barH + 3);
+                        const color = hues[i % hues.length];
+                        return (
+                          <g key={`dur${i}`} style={{ animation: `fadeIn 0.6s ${0.4 + i * 0.15}s ease forwards`, opacity: 0 }}>
+                            <rect x={x1} y={yPos} width={Math.max(x2 - x1, 6)} height={barH}
+                              fill={color} opacity="0.1" rx="2" />
+                            <rect x={x1} y={yPos} width={Math.max(x2 - x1, 6)} height={barH}
+                              fill="none" stroke={color} strokeWidth="0.5" opacity="0.25" rx="2" />
+                          </g>
+                        );
+                      })}
+
+                      {/* Baseline */}
+                      <line x1={padL} y1={baselineY} x2={padL + chartW} y2={baselineY} stroke="var(--border)" strokeWidth="0.5" opacity="0.3" />
+
+                      {/* Year scale ticks */}
+                      {scaleTicks.map(yr => (
+                        <g key={`tick${yr}`}>
+                          <line x1={xOfYear(yr)} y1={baselineY} x2={xOfYear(yr)} y2={baselineY + 5} stroke="var(--border)" strokeWidth="0.5" opacity="0.4" />
+                          <text x={xOfYear(yr)} y={baselineY + 16} textAnchor="middle" fill="var(--muted)" fontSize="8" fontFamily="'Space Mono', monospace" opacity="0.6">{yr}</text>
+                        </g>
+                      ))}
+
+                      {/* Arc path */}
+                      <path d={curvePath} fill="none" stroke="url(#arcGrad)" strokeWidth="2.5" strokeLinecap="round"
+                        strokeDasharray="2000" strokeDashoffset="2000"
+                        style={{ animation: "drawIn 2s 0.3s ease forwards" }} />
+
+                      {/* Waypoint nodes + labels */}
+                      {items.map((d, i) => {
+                        const { x, y } = pts[i];
+                        const degree = d["Degree Name"] || "";
+                        const school = d["School Name"] || "";
+                        // All labels above the node on the arc
+                        const anchor = x < W * 0.25 ? "start" : x > W * 0.75 ? "end" : "middle";
+                        return (
+                          <g key={`ed${i}`} style={{ animation: `floatIn 0.4s ${0.8 + i * 0.3}s ease forwards`, opacity: 0 }}>
+                            {/* Node */}
+                            <circle cx={x} cy={y} r="6" fill="var(--bg)" stroke={hues[i % hues.length]} strokeWidth="2" />
+                            <circle cx={x} cy={y} r="2.5" fill={hues[i % hues.length]} opacity="0.8" />
+                            {/* Labels above */}
+                            <text x={x} y={y - 16} textAnchor={anchor} fill="var(--text)" fontSize="10" fontFamily="'Playfair Display', serif" fontWeight="700">
+                              {degree.length > 32 ? degree.slice(0, 30) + "…" : degree}
+                            </text>
+                            {school && (
+                              <text x={x} y={y - 4} textAnchor={anchor} fill="var(--muted)" fontSize="8" fontFamily="'Space Mono', monospace">
+                                {school.length > 28 ? school.slice(0, 26) + "…" : school}
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })}
+                    </svg>
                   </div>
-                ))}
-                {certifications && certifications.map((cert, i) => (
-                  <div key={`cert${i}`} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < certifications.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 9, padding: "2px 8px", border: "1px solid var(--teal-dim)", color: "var(--teal)", letterSpacing: "0.08em" }}>CERT</span>
-                      <span style={{ fontSize: 13, color: "var(--text)" }}>{cert["Name"] || ""}</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{cert["Authority"] || ""}{cert["Started On"] ? ` · ${cert["Started On"]}` : ""}</div>
+                );
+              })()}
+
+              {/* Certifications — badge grid */}
+              {certifications && certifications.length > 0 && (
+                <div className="card" style={{ padding: "28px 24px" }}>
+                  <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 16 }}>CERTIFICATIONS & FELLOWSHIPS</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+                    {certifications.map((cert, i) => {
+                      const name = cert["Name"] || "";
+                      const authority = cert["Authority"] || "";
+                      const date = cert["Started On"] || "";
+                      const domain = authority ? companyToDomain(authority) : null;
+                      return (
+                        <div key={`cert${i}`} style={{
+                          padding: "14px 16px",
+                          background: "var(--bg)",
+                          border: "1px solid var(--border)",
+                          borderLeft: "3px solid var(--teal)",
+                          transition: "border-color 0.2s, box-shadow 0.2s",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--teal)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(61,214,200,0.08)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.borderLeftColor = "var(--teal)"; e.currentTarget.style.boxShadow = "none"; }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="8" r="6" />
+                              <path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12" />
+                            </svg>
+                            <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, lineHeight: 1.3, flex: 1 }}>{name}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {domain && <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`} width={12} height={12} alt="" style={{ opacity: 0.6 }} />}
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>{authority}</span>
+                          </div>
+                          {date && <div style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", marginTop: 6, fontFamily: "'Space Mono', monospace" }}>{date}</div>}
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* Published Articles */}
           {articles && (
-            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
               <SectionLabel icon="article">PUBLISHED ARTICLES</SectionLabel>
               <div className="card" style={{ padding: 24 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: 20 }}>
-                  <div style={{ padding: "12px 10px", background: "var(--bg)", border: "1px solid var(--border)", textAlign: "center" }}>
-                    <div className="serif" style={{ fontSize: 22, color: "var(--gold)", lineHeight: 1, marginBottom: 4 }}><CountUp value={articles.total} /></div>
-                    <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em" }}>ARTICLES</div>
+                {/* Summary stats inline */}
+                <div style={{ display: "flex", gap: 24, alignItems: "baseline", marginBottom: 20 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span className="serif" style={{ fontSize: 28, color: "var(--gold)", lineHeight: 1 }}><CountUp value={articles.total} /></span>
+                    <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em" }}>ARTICLES</span>
                   </div>
-                  <div style={{ padding: "12px 10px", background: "var(--bg)", border: "1px solid var(--border)", textAlign: "center" }}>
-                    <div className="serif" style={{ fontSize: 22, color: "var(--teal)", lineHeight: 1, marginBottom: 4 }}>{articles.avgWords}</div>
-                    <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em" }}>AVG WORDS</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                    <span className="serif" style={{ fontSize: 28, color: "var(--teal)", lineHeight: 1 }}>{articles.avgWords}</span>
+                    <span style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em" }}>AVG WORDS</span>
                   </div>
-                </div>
-                {articles.topics.length > 0 && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 10 }}>ARTICLE TOPICS</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {articles.topics.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginLeft: "auto" }}>
                       {articles.topics.map(([topic, count], i) => (
-                        <span key={i} style={{ padding: "4px 12px", border: "1px solid var(--gold-dim)", fontSize: 11, color: "var(--gold)" }}>{topic} ({count})</span>
+                        <span key={i} style={{ padding: "3px 10px", border: "1px solid var(--gold-dim)", fontSize: 10, color: "var(--gold)", borderRadius: 2 }}>{topic} ({count})</span>
                       ))}
                     </div>
-                  </div>
-                )}
-                {articles.articles.map((a, i) => (
-                  <div key={i} style={{ padding: "12px 0", borderBottom: i < articles.articles.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 4 }}>{a.title}</div>
-                    <div style={{ display: "flex", gap: 12, fontSize: 10, color: "var(--muted)" }}>
-                      {a.date && <span>{a.date}</span>}
-                      <span>{a.wordCount.toLocaleString()} words</span>
+                  )}
+                </div>
+
+                {/* Article stack — overlapping paper cards */}
+                {(() => {
+                  const total = articles.articles.length;
+                  const maxWords = Math.max(...articles.articles.map(x => x.wordCount), 1);
+                  const rotations = [-0.8, 0.5, -0.3, 0.7, -0.6, 0.4, -0.9, 0.2];
+                  const offsets = [3, -2, 5, -4, 2, -3, 6, -1];
+                  return (
+                    <div style={{ position: "relative", perspective: 800 }}>
+                      {articles.articles.map((a, i) => {
+                        const rot = rotations[i % rotations.length];
+                        const offX = offsets[i % offsets.length];
+                        const wordBar = Math.round((a.wordCount / maxWords) * 100);
+                        const lineCount = Math.max(2, Math.min(5, Math.round(a.wordCount / 250)));
+                        return (
+                          <div key={i} style={{
+                            position: "relative",
+                            marginBottom: i < total - 1 ? -18 : 0,
+                            zIndex: total - i,
+                            transform: `rotate(${rot}deg) translateX(${offX}px)`,
+                            transition: "transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, margin-bottom 0.35s ease",
+                            animation: `floatIn 0.4s ${i * 0.12}s ease forwards`, opacity: 0,
+                            cursor: "default",
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.transform = "rotate(0deg) translateX(0) translateY(-6px)";
+                            e.currentTarget.style.zIndex = 100;
+                            e.currentTarget.style.marginBottom = i < total - 1 ? "4px" : "0";
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.transform = `rotate(${rot}deg) translateX(${offX}px)`;
+                            e.currentTarget.style.zIndex = total - i;
+                            e.currentTarget.style.marginBottom = i < total - 1 ? "-18px" : "0";
+                          }}
+                          >
+                            <div style={{
+                              padding: "20px 24px 16px",
+                              background: "var(--surface)",
+                              border: "1px solid var(--border)",
+                              boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+                            }}>
+                              {/* Top edge — gold rule like a document header */}
+                              <div style={{ height: 2, background: "var(--gold)", opacity: 0.3, marginBottom: 14, width: 40 }} />
+                              <div className="serif" style={{ fontSize: 15, color: "var(--text)", fontWeight: 700, lineHeight: 1.4, marginBottom: 8 }}>{a.title}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                                <div style={{ display: "flex", gap: 12, fontSize: 10, color: "var(--muted)", fontFamily: "'Space Mono', monospace" }}>
+                                  {a.date && <span>{a.date}</span>}
+                                  <span>{a.wordCount.toLocaleString()} words</span>
+                                </div>
+                                {/* Word count sparkbar */}
+                                <div style={{ flex: 1, maxWidth: 100, height: 3, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+                                  <div style={{ width: `${wordBar}%`, height: "100%", background: "var(--gold)", opacity: 0.45, borderRadius: 2 }} />
+                                </div>
+                              </div>
+                              {/* Faux body text lines */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                                {Array.from({ length: lineCount }, (_, j) => (
+                                  <div key={j} style={{
+                                    height: 2,
+                                    background: "var(--border)",
+                                    opacity: 0.15 + 0.1 * (1 - j / lineCount),
+                                    width: j === lineCount - 1 ? `${35 + (i * 13 + j * 17) % 40}%` : `${85 + (j * 7) % 15}%`,
+                                  }} />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                ))}
+                  );
+                })()}
               </div>
             </div>
           )}
 
           {/* Recommendations */}
           {recsReceived && recsReceived.length > 0 && (
-            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
               <SectionLabel icon="recommendation">RECOMMENDATIONS</SectionLabel>
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {recsReceived.map((r, i) => (
@@ -2832,12 +3919,12 @@ function Results({ data, onReset }) {
                       &ldquo;{r["Text"] || ""}&rdquo;
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--gold-glow)", border: "1px solid var(--gold-dim)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--gold-glow)", border: "1px solid var(--gold-dim)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>
                         {(r["First Name"] || "?")[0]}
                       </div>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{r["First Name"] || ""} {r["Last Name"] || ""}</div>
-                        <div style={{ fontSize: 10, color: "var(--muted)" }}>{r["Job Title"] || ""}{r["Company"] ? ` · ${r["Company"]}` : ""}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{r["Job Title"] || ""}{r["Company"] ? ` · ${r["Company"]}` : ""}</div>
                       </div>
                     </div>
                   </div>
@@ -2848,7 +3935,7 @@ function Results({ data, onReset }) {
 
           {/* Learning */}
           {learning && (
-            <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 32 }}>
+            <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
               <SectionLabel icon="learning">LEARNING</SectionLabel>
               <div className="card" style={{ padding: 24 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 20 }}>
@@ -2858,7 +3945,7 @@ function Results({ data, onReset }) {
                     { v: learning.completed, l: "Completed" },
                   ].map((s, i) => (
                     <div key={i} style={{ padding: "12px 10px", background: "var(--bg)", border: "1px solid var(--border)", textAlign: "center" }}>
-                      <div className="serif" style={{ fontSize: 24, color: "var(--gold)", lineHeight: 1, marginBottom: 4 }}>{s.v}</div>
+                      <div className="serif" style={{ fontSize: 22, color: "var(--gold)", lineHeight: 1, marginBottom: 4 }}>{s.v}</div>
                       <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em" }}>{s.l.toUpperCase()}</div>
                     </div>
                   ))}
@@ -2866,7 +3953,7 @@ function Results({ data, onReset }) {
 
                 {learning.topTopics.length > 0 && (
                   <div style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 16 }}>TOPICS YOU STUDY</div>
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 16 }}>TOPICS YOU STUDY</div>
                     <RadialSegments industries={Object.fromEntries(learning.topTopics)} total={learning.total} />
                   </div>
                 )}
@@ -2875,7 +3962,7 @@ function Results({ data, onReset }) {
                   const maxYearL = Math.max(...learning.timeline.map(([, ct]) => ct), 1);
                   return (
                     <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 12 }}>LEARNING ACTIVITY BY YEAR</div>
+                      <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 12 }}>LEARNING ACTIVITY BY YEAR</div>
                       <svg viewBox={`0 0 ${learning.timeline.length * 40} 80`} style={{ width: "100%", height: 100, overflow: "visible" }}>
                         {learning.timeline.map(([year, count], i) => {
                           const h = (count / maxYearL) * 54;
@@ -2894,14 +3981,14 @@ function Results({ data, onReset }) {
 
                 {learning.recent.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 12 }}>RECENTLY VIEWED</div>
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 12 }}>RECENTLY VIEWED</div>
                     {learning.recent.map((course, i) => (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: i < learning.recent.length - 1 ? "1px solid var(--border)" : "none", gap: 16 }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 12, color: "var(--text)", marginBottom: 4 }}>{course.title}</div>
+                          <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 4 }}>{course.title}</div>
                           <span style={{ fontSize: 9, padding: "2px 8px", border: "1px solid var(--border-bright)", color: "var(--muted)", letterSpacing: "0.08em" }}>{course.topic}</span>
                         </div>
-                        <div style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" }}>{course.date}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{course.date}</div>
                       </div>
                     ))}
                   </div>
@@ -2918,268 +4005,531 @@ function Results({ data, onReset }) {
           CHAPTER 4 — WHAT LINKEDIN KNOWS ABOUT YOU (LIGHT, rose accents)
           ═══════════════════════════════════════════════════════════════════════ */}
       <div className="chapter chapter-light" ref={ch4Ref}>
-        <ChapterOpener number="04" title={<>What LinkedIn <em style={{ color: "var(--rose)" }}>Knows</em> About You</>} subtitle="Ad targeting categories, stored files, AI interactions, spending, and inferences LinkedIn has drawn from your activity." />
+        {/* Sealed Dossier Cover */}
+        {!dossierOpen ? (
+          <div className="chapter-opener" style={{ position: "relative", minHeight: "70vh", cursor: "default" }}>
+            <div className="scroll-reveal" style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 11, letterSpacing: "0.35em", color: "var(--rose)", marginBottom: 24, opacity: 0.7 }}>CHAPTER 04</div>
+              <h2 className="serif" style={{ fontSize: "clamp(28px, 4vw, 44px)", lineHeight: 1.2, marginBottom: 16, color: "var(--cream-text)" }}>
+                What LinkedIn <em style={{ color: "var(--rose)" }}>Knows</em> About You
+              </h2>
+              <p style={{ fontSize: 13, color: "var(--cream-muted)", lineHeight: 1.8, maxWidth: 500, margin: "0 auto 40px" }}>
+                Ad targeting categories, stored files, AI interactions, spending, and inferences LinkedIn has drawn from your activity.
+              </p>
 
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px", boxSizing: "border-box", color: "var(--cream-text)" }}>
-          {/* Ad targeting mosaic */}
-          {adTargeting && adTargeting.length > 0 && (
-            <div className="scroll-reveal" style={{ marginBottom: 32 }}>
-              <div className="card" style={{ padding: 20, marginBottom: 16, borderColor: "rgba(212,168,67,0.2)", background: "rgba(212,168,67,0.04)" }}>
-                <div style={{ fontSize: 12, color: "var(--cream-text)", lineHeight: 1.8 }}>
-                  This is how LinkedIn has <strong style={{ color: "var(--gold)" }}>categorised you</strong> to sell access to advertisers. Every label below has a price tag.
-                </div>
+              {/* Seal graphic */}
+              <div style={{ position: "relative", display: "inline-block", animation: sealAnimating ? "sealBreak 0.7s cubic-bezier(0.22,1,0.36,1) forwards" : "none" }}>
+                <svg width={120} height={120} viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="54" fill="none" stroke="var(--rose)" strokeWidth="2" opacity="0.3" />
+                  <circle cx="60" cy="60" r="46" fill="none" stroke="var(--rose)" strokeWidth="1" opacity="0.2" />
+                  <circle cx="60" cy="60" r="50" fill="rgba(232,96,96,0.06)" />
+                  {/* Fingerprint motif */}
+                  <path d="M60 30 Q45 40 45 55 Q45 70 60 76" fill="none" stroke="var(--rose)" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+                  <path d="M60 30 Q75 40 75 55 Q75 70 60 76" fill="none" stroke="var(--rose)" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+                  <path d="M60 38 Q50 45 50 55 Q50 65 60 70" fill="none" stroke="var(--rose)" strokeWidth="1" strokeLinecap="round" opacity="0.3" />
+                  <path d="M60 38 Q70 45 70 55 Q70 65 60 70" fill="none" stroke="var(--rose)" strokeWidth="1" strokeLinecap="round" opacity="0.25" />
+                  <line x1="60" y1="35" x2="60" y2="72" stroke="var(--rose)" strokeWidth="0.8" opacity="0.2" />
+                  <text x="60" y="90" textAnchor="middle" fill="var(--rose)" fontSize="7" fontFamily="'Space Mono', monospace" letterSpacing="3" opacity="0.6">SEALED</text>
+                </svg>
               </div>
-              {adTargeting.map((cat, ci) => {
-                const colors = TAG_COLORS[cat.key] || defaultTag;
-                const COLLAPSE_THRESHOLD = 20;
-                const isLong = cat.items.length > COLLAPSE_THRESHOLD;
-                const isExpanded = expanded[cat.key];
-                const displayItems = isLong && !isExpanded ? cat.items.slice(0, COLLAPSE_THRESHOLD) : cat.items;
+
+              <div style={{ marginTop: 32 }}>
+                <button onClick={breakSeal} style={{
+                  background: "none", border: "1px solid var(--rose)", color: "var(--rose)",
+                  padding: "10px 28px", fontSize: 11, letterSpacing: "0.2em",
+                  fontFamily: "'Space Mono', monospace", cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  opacity: sealAnimating ? 0 : 1,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(232,96,96,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "none"; }}
+                >
+                  OPEN DOSSIER
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <ChapterOpener number="04" title={<>What LinkedIn <em style={{ color: "var(--rose)" }}>Knows</em> About You</>} subtitle="Ad targeting categories, stored files, AI interactions, spending, and inferences LinkedIn has drawn from your activity." />
+
+            <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px", boxSizing: "border-box", color: "var(--cream-text)", animation: "fadeUp 0.8s ease forwards" }}>
+
+              {/* ── Ad Targeting Mosaic ─────────────────────────────────── */}
+              {adTargeting && adTargeting.length > 0 && (() => {
+                const totalItems = adTargeting.reduce((s, c) => s + c.items.length, 0);
                 return (
-                  <div key={ci} className="card" style={{ padding: 24, marginBottom: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                      <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-muted)" }}>
-                        <span style={{ marginRight: 8 }}>{cat.icon}</span>{cat.label}
+                  <div className="scroll-reveal" style={{ marginBottom: 64 }}>
+                    <div className="card" style={{ padding: 20, marginBottom: 16, borderColor: "rgba(232,96,96,0.15)", background: "rgba(232,96,96,0.03)" }}>
+                      <div style={{ fontSize: 13, color: "var(--cream-text)", lineHeight: 1.8 }}>
+                        LinkedIn has placed you in <strong style={{ color: "var(--rose)" }}>{adTargeting.length} targeting categories</strong> containing <strong style={{ color: "var(--rose)" }}>{totalItems} individual labels</strong> used to sell access to advertisers.
                       </div>
-                      <span style={{ fontSize: 10, color: "var(--cream-muted)" }}>{cat.items.length} {cat.items.length === 1 ? "item" : "items"}</span>
                     </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {displayItems.map((item, i) => (
-                        <span key={i} style={{ padding: "4px 12px", border: `1px solid ${colors.border}`, fontSize: 11, color: colors.color, background: colors.bg, animation: `floatIn 0.4s ${Math.min(i * 0.02, 0.5)}s cubic-bezier(0.22,1,0.36,1) forwards`, opacity: 0 }}>{item}</span>
-                      ))}
+
+                    {/* Mosaic grid — categories sized by item count */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+                      {adTargeting.map((cat, ci) => {
+                        const colors = TAG_COLORS[cat.key] || defaultTag;
+                        const COLLAPSE_THRESHOLD = 12;
+                        const isLong = cat.items.length > COLLAPSE_THRESHOLD;
+                        const isExpanded = expanded[cat.key];
+                        const displayItems = isLong && !isExpanded ? cat.items.slice(0, COLLAPSE_THRESHOLD) : cat.items;
+                        const size = cat.items.length;
+
+                        return (
+                          <div key={ci} className="card" style={{
+                            padding: "18px 20px",
+                            gridColumn: size > 15 ? "span 2" : "span 1",
+                            borderColor: colors.border,
+                            transition: "border-color 0.3s",
+                          }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 14, opacity: 0.6 }}>{cat.icon}</span>
+                                <span style={{ fontSize: 10, letterSpacing: "0.15em", color: colors.color, fontFamily: "'Space Mono', monospace" }}>{cat.label}</span>
+                              </div>
+                              <span style={{
+                                fontSize: 9, padding: "2px 8px", borderRadius: 10,
+                                background: "rgba(232,96,96,0.08)", color: "var(--rose)",
+                                fontFamily: "'Space Mono', monospace",
+                              }}>{size}</span>
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {displayItems.map((item, i) => (
+                                <span key={i} style={{
+                                  padding: "3px 10px", border: `1px solid ${colors.border}`,
+                                  fontSize: 10, color: colors.color, background: colors.bg,
+                                  animation: `floatIn 0.3s ${Math.min(i * 0.02, 0.4)}s ease forwards`, opacity: 0,
+                                }}>{item}</span>
+                              ))}
+                            </div>
+                            {isLong && (
+                              <button onClick={() => toggle(cat.key)} style={{
+                                marginTop: 8, background: "none", border: "none",
+                                color: "var(--rose)", fontSize: 10, cursor: "pointer",
+                                fontFamily: "'Space Mono', monospace", letterSpacing: "0.1em", padding: 0,
+                              }}>
+                                {isExpanded ? "▲ LESS" : `▼ ALL ${cat.items.length}`}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {isLong && (
-                      <button onClick={() => toggle(cat.key)} style={{ marginTop: 10, background: "none", border: "none", color: "var(--gold)", fontSize: 10, cursor: "pointer", fontFamily: "Space Mono", letterSpacing: "0.1em", padding: 0 }}>
-                        {isExpanded ? "SHOW LESS" : `SHOW ALL ${cat.items.length}`}
-                      </button>
-                    )}
                   </div>
                 );
-              })}
-            </div>
-          )}
+              })()}
 
-          {/* Account Age */}
-          {registration && (
-            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 32 }}>
-              <div className="card" style={{ padding: 20, borderColor: "rgba(212,168,67,0.3)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-muted)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Icon name="calendar" size={12} color="var(--cream-muted)" style={{ opacity: 0.7 }} />ACCOUNT AGE</div>
-                    <div style={{ fontSize: 13, color: "var(--cream-text)" }}>Registered <strong style={{ color: "var(--gold)" }}>{registration["Registered At"] || registration["Registration Date"] || registration["Date"] || "Unknown"}</strong></div>
+              {/* ── Account Age — Timeline Ruler ───────────────────────── */}
+              {registration && (() => {
+                const dateStr = registration["Registered At"] || registration["Registration Date"] || registration["Date"] || "";
+                const regDate = new Date(dateStr);
+                const isValid = !isNaN(regDate);
+                const years = isValid ? Math.floor((Date.now() - regDate) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
+                const startYear = isValid ? regDate.getFullYear() : 2020;
+                const endYear = new Date().getFullYear();
+                const yearSpan = endYear - startYear || 1;
+                const W = 700, H = 60, padL = 10, padR = 10;
+                const chartW = W - padL - padR;
+                return (
+                  <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
+                    <div className="card" style={{ padding: "20px 24px", borderColor: "rgba(212,168,67,0.2)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <div style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--cream-muted)", display: "flex", alignItems: "center", gap: 6 }}>
+                          <Icon name="calendar" size={12} color="var(--cream-muted)" />ACCOUNT AGE
+                        </div>
+                        <div className="serif" style={{ fontSize: 36, color: "var(--gold)", lineHeight: 1 }}>
+                          <CountUp value={years} /><span style={{ fontSize: 16, opacity: 0.6 }}>yr</span>
+                        </div>
+                      </div>
+                      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+                        {/* Timeline ruler */}
+                        <line x1={padL} y1={25} x2={padL + chartW} y2={25} stroke="var(--cream-border)" strokeWidth="1" />
+                        <line x1={padL} y1={25} x2={padL + chartW} y2={25} stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"
+                          strokeDasharray={chartW} strokeDashoffset={chartW}
+                          style={{ animation: "drawIn 1.5s 0.3s ease forwards" }} />
+                        {/* Year ticks */}
+                        {Array.from({ length: yearSpan + 1 }, (_, i) => {
+                          const yr = startYear + i;
+                          const x = padL + (i / yearSpan) * chartW;
+                          const show = yearSpan <= 8 || i % Math.ceil(yearSpan / 8) === 0 || i === yearSpan;
+                          return show ? (
+                            <g key={yr}>
+                              <line x1={x} y1={20} x2={x} y2={30} stroke="var(--cream-border)" strokeWidth="0.5" />
+                              <text x={x} y={45} textAnchor="middle" fill="var(--cream-muted)" fontSize="7" fontFamily="'Space Mono', monospace" opacity="0.6">{yr}</text>
+                            </g>
+                          ) : null;
+                        })}
+                        {/* Start dot */}
+                        <circle cx={padL} cy={25} r="4" fill="var(--cream)" stroke="var(--gold)" strokeWidth="1.5"
+                          style={{ animation: "floatIn 0.4s 0.3s ease forwards", opacity: 0 }} />
+                        {/* End dot */}
+                        <circle cx={padL + chartW} cy={25} r="4" fill="var(--gold)"
+                          style={{ animation: "floatIn 0.4s 1.5s ease forwards", opacity: 0 }} />
+                      </svg>
+                      <div style={{ fontSize: 11, color: "var(--cream-muted)", marginTop: 4 }}>
+                        Registered <strong style={{ color: "var(--gold)" }}>{dateStr || "Unknown"}</strong>
+                      </div>
+                    </div>
                   </div>
-                  <div className="serif" style={{ fontSize: 28, color: "var(--gold)" }}>
-                    {(() => {
-                      const dateStr = registration["Registered At"] || registration["Registration Date"] || registration["Date"] || "";
-                      const d = new Date(dateStr);
-                      if (isNaN(d)) return "";
-                      return `${Math.floor((Date.now() - d) / (365.25 * 24 * 60 * 60 * 1000))}yr`;
+                );
+              })()}
+
+              {/* ── CV Vault — File Drawer Cards ───────────────────────── */}
+              {privateAssets && privateAssets.length > 0 && (
+                <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
+                  <SectionLabel color="var(--rose)" icon="vault">CV VAULT</SectionLabel>
+                  <div className="card" style={{ padding: 24, borderColor: "rgba(232,96,96,0.2)" }}>
+                    <div style={{ fontSize: 13, color: "var(--cream-text)", lineHeight: 1.8, marginBottom: 16 }}>
+                      LinkedIn retains <strong style={{ color: "var(--rose)" }}>{privateAssets.length} private identity asset{privateAssets.length !== 1 ? "s" : ""}</strong> including uploaded resumes and CVs.
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {privateAssets.slice(0, 5).map((asset, i) => {
+                        const name = asset["Asset Name"] || asset["Name"] || asset["File Name"] || Object.values(asset).find(v => v && v.length > 2) || "";
+                        const preview = name.length > 100 ? name.slice(0, 98) + "…" : name;
+                        return (
+                          <div key={i} style={{
+                            display: "flex", alignItems: "center", gap: 12,
+                            padding: "12px 16px",
+                            background: "rgba(232,96,96,0.03)",
+                            border: "1px solid rgba(232,96,96,0.12)",
+                            borderLeft: "3px solid var(--rose)",
+                            animation: `receiptLine 0.4s ${i * 0.1}s ease forwards`, opacity: 0,
+                          }}>
+                            {/* Document icon */}
+                            <svg width="18" height="22" viewBox="0 0 18 22" fill="none" style={{ flexShrink: 0 }}>
+                              <path d="M1 3C1 1.9 1.9 1 3 1h8l5 5v13c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3z" stroke="var(--rose)" strokeWidth="1.2" />
+                              <path d="M11 1v5h5" stroke="var(--rose)" strokeWidth="1.2" />
+                              <line x1="4" y1="10" x2="13" y2="10" stroke="var(--rose)" strokeWidth="0.5" opacity="0.3" />
+                              <line x1="4" y1="13" x2="11" y2="13" stroke="var(--rose)" strokeWidth="0.5" opacity="0.3" />
+                              <line x1="4" y1="16" x2="9" y2="16" stroke="var(--rose)" strokeWidth="0.5" opacity="0.3" />
+                            </svg>
+                            <span style={{ fontSize: 11, color: "var(--cream-text)", fontFamily: "'Space Mono', monospace", flex: 1, wordBreak: "break-all" }}>
+                              {preview || `Asset ${i + 1}`}
+                            </span>
+                            <span style={{ fontSize: 8, padding: "2px 8px", border: "1px solid rgba(232,96,96,0.25)", color: "var(--rose)", letterSpacing: "0.1em", flexShrink: 0 }}>STORED</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--rose)", marginTop: 14, lineHeight: 1.7, opacity: 0.8 }}>
+                      Consider reviewing and removing outdated uploads via LinkedIn Settings → Data Privacy.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── AI Coach — Conversation Thread ─────────────────────── */}
+              {aiCoach && (
+                <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
+                  <SectionLabel color="var(--cream-muted)" icon="ai">LINKEDIN AI INTERACTIONS</SectionLabel>
+                  <div className="card" style={{ padding: 24 }}>
+                    {/* Horizontal gauges */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+                      {[
+                        { label: "JOB GUIDE", count: aiCoach.guideTotal, color: "var(--gold)" },
+                        { label: "LEARNING COACH", count: aiCoach.coachTotal, color: "var(--teal)" },
+                      ].map((g, i) => {
+                        const maxVal = Math.max(aiCoach.guideTotal, aiCoach.coachTotal, 1);
+                        const pct = (g.count / maxVal) * 100;
+                        return (
+                          <div key={i}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                              <span style={{ fontSize: 9, letterSpacing: "0.12em", color: "var(--cream-muted)" }}>{g.label}</span>
+                              <span className="serif" style={{ fontSize: 22, color: g.color }}><CountUp value={g.count} /></span>
+                            </div>
+                            <div style={{ height: 6, background: "var(--cream)", border: "1px solid var(--cream-border)", overflow: "hidden" }}>
+                              <div style={{ width: `${pct}%`, height: "100%", background: g.color, opacity: 0.5, transformOrigin: "left", animation: "barGrowH 0.8s 0.3s ease forwards", transform: "scaleX(0)" }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Topic bars */}
+                    {aiCoach.guideTopics.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 8 }}>GUIDE TOPICS</div>
+                        {aiCoach.guideTopics.map(([topic, count], i) => {
+                          const max = Math.max(...aiCoach.guideTopics.map(([, c]) => c), 1);
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                              <span style={{ fontSize: 10, color: "var(--cream-text)", width: 140, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topic}</span>
+                              <div style={{ flex: 1, height: 4, background: "var(--cream)", border: "1px solid var(--cream-border)", overflow: "hidden" }}>
+                                <div style={{ width: `${(count / max) * 100}%`, height: "100%", background: "var(--gold)", opacity: 0.5, transformOrigin: "left", animation: `barGrowH 0.6s ${i * 0.05}s ease forwards`, transform: "scaleX(0)" }} />
+                              </div>
+                              <span style={{ fontSize: 9, color: "var(--gold)", fontFamily: "'Space Mono', monospace", width: 20, textAlign: "right" }}>{count}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {aiCoach.coachTopics.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 8 }}>COACH TOPICS</div>
+                        {aiCoach.coachTopics.map(([topic, count], i) => {
+                          const max = Math.max(...aiCoach.coachTopics.map(([, c]) => c), 1);
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                              <span style={{ fontSize: 10, color: "var(--cream-text)", width: 140, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topic}</span>
+                              <div style={{ flex: 1, height: 4, background: "var(--cream)", border: "1px solid var(--cream-border)", overflow: "hidden" }}>
+                                <div style={{ width: `${(count / max) * 100}%`, height: "100%", background: "var(--teal)", opacity: 0.5, transformOrigin: "left", animation: `barGrowH 0.6s ${i * 0.05}s ease forwards`, transform: "scaleX(0)" }} />
+                              </div>
+                              <span style={{ fontSize: 9, color: "var(--teal)", fontFamily: "'Space Mono', monospace", width: 20, textAlign: "right" }}>{count}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Job titles as chat bubbles */}
+                    {aiCoach.jobTitlesAnalysed.length > 0 && (
+                      <div style={{ marginTop: 16 }}>
+                        <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 10 }}>JOB TITLES AI ANALYSED</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {aiCoach.jobTitlesAnalysed.map((t, i) => (
+                            <div key={i} style={{
+                              display: "inline-flex", alignSelf: "flex-start",
+                              padding: "8px 14px",
+                              background: "rgba(61,214,200,0.05)",
+                              border: "1px solid rgba(61,214,200,0.12)",
+                              borderRadius: "12px 12px 12px 4px",
+                              fontSize: 12, color: "var(--cream-text)",
+                              animation: `floatIn 0.3s ${i * 0.08}s ease forwards`, opacity: 0,
+                            }}>
+                              {t}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: 11, color: "var(--rose)", marginTop: 16, lineHeight: 1.7, opacity: 0.8 }}>
+                      LinkedIn stores your conversations with its AI tools, including job match analyses and career coaching.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Premium Spend — Receipt Tape ───────────────────────── */}
+              {spending && spending.currencies.length > 0 && (
+                <div className="scroll-reveal" style={{ marginBottom: 64 }}>
+                  <SectionLabel color="var(--cream-muted)" icon="spend">PREMIUM SPEND</SectionLabel>
+                  <div className="card" style={{ padding: 24 }}>
+                    {/* Hero total */}
+                    <div style={{ marginBottom: 20 }}>
+                      {spending.currencies.map((cur, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: i < spending.currencies.length - 1 ? 8 : 0 }}>
+                          <span className="serif" style={{ fontSize: 32, color: "var(--gold)", lineHeight: 1 }}>
+                            {cur.currency === "USD" ? "$" : cur.currency === "GBP" ? "£" : cur.currency === "EUR" ? "€" : ""}<CountUp value={Math.round(cur.total)} />
+                          </span>
+                          <span style={{ fontSize: 10, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>{cur.currency} · {cur.count} transactions</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Receipt tape */}
+                    {spending.yearBreakdown.length > 0 && (
+                      <div style={{ borderTop: "1px dashed var(--cream-border)", paddingTop: 16 }}>
+                        <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>YEARLY BREAKDOWN</div>
+                        {spending.yearBreakdown.map((y, i) => {
+                          const sym = y.currency === "USD" ? "$" : y.currency === "GBP" ? "£" : y.currency === "EUR" ? "€" : "";
+                          return (
+                            <div key={i} style={{
+                              display: "flex", alignItems: "baseline", padding: "6px 0",
+                              borderBottom: "1px dotted var(--cream-border)",
+                              fontFamily: "'Space Mono', monospace",
+                              animation: `receiptLine 0.3s ${i * 0.06}s ease forwards`, opacity: 0,
+                            }}>
+                              <span style={{ fontSize: 11, color: "var(--cream-text)" }}>{y.year}</span>
+                              <span style={{ flex: 1, borderBottom: "1px dotted var(--cream-border)", margin: "0 8px", opacity: 0.3, height: 1, alignSelf: "center" }} />
+                              <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 700 }}>{sym}{y.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                              <span style={{ fontSize: 9, color: "var(--cream-muted)", marginLeft: 8 }}>{y.currency}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Content Creator — Type bars + year chart ────────────── */}
+              {contentCreator && (
+                <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
+                  <SectionLabel color="var(--cream-muted)" icon="content">CONTENT CREATOR</SectionLabel>
+                  <div className="card" style={{ padding: 24 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 20 }}>
+                      <span className="serif" style={{ fontSize: 28, color: "var(--teal)", lineHeight: 1 }}>{contentCreator.totalPieces}</span>
+                      <span style={{ fontSize: 10, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>MEDIA ITEMS STORED</span>
+                    </div>
+
+                    {/* Type breakdown with proportional bars */}
+                    {contentCreator.byType.length > 0 && (
+                      <div style={{ marginBottom: 20 }}>
+                        {contentCreator.byType.map(([type, count], i) => {
+                          const max = Math.max(...contentCreator.byType.map(([, c]) => c), 1);
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                              <span style={{ fontSize: 10, color: "var(--cream-text)", width: 80, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>{type}</span>
+                              <div style={{ flex: 1, height: 6, background: "var(--cream)", border: "1px solid var(--cream-border)", overflow: "hidden" }}>
+                                <div style={{ width: `${(count / max) * 100}%`, height: "100%", background: "var(--teal)", opacity: 0.5, transformOrigin: "left", animation: `barGrowH 0.6s ${i * 0.1}s ease forwards`, transform: "scaleX(0)" }} />
+                              </div>
+                              <span className="serif" style={{ fontSize: 16, color: "var(--teal)", width: 30, textAlign: "right" }}>{count}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Year mini chart */}
+                    {contentCreator.byYear.length > 1 && (() => {
+                      const data = contentCreator.byYear;
+                      const maxY = Math.max(...data.map(([, c]) => c), 1);
+                      const W = 600, H = 80, pad = 10;
+                      const chartW = W - pad * 2;
+                      return (
+                        <div>
+                          <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 8 }}>PUBLISHED BY YEAR</div>
+                          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+                            {data.map(([year, count], i) => {
+                              const x = pad + (i / (data.length - 1 || 1)) * chartW;
+                              const h = (count / maxY) * 50;
+                              return (
+                                <g key={i}>
+                                  <rect x={x - 12} y={60 - h} width={24} height={h} rx={4} fill="var(--teal)" opacity="0.4"
+                                    style={{ transformOrigin: `${x}px 60px`, animation: `barGrow 0.5s ${i * 0.08}s ease forwards`, transform: "scaleY(0)" }} />
+                                  <text x={x} y={74} textAnchor="middle" fill="var(--cream-muted)" fontSize="7" fontFamily="'Space Mono', monospace">{year.toString().slice(2)}</text>
+                                  {count > 0 && <text x={x} y={60 - h - 4} textAnchor="middle" fill="var(--teal)" fontSize="7" fontFamily="'Space Mono', monospace">{count}</text>}
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        </div>
+                      );
                     })()}
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* CV Vault */}
-          {privateAssets && privateAssets.length > 0 && (
-            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 32 }}>
-              <div className="card" style={{ padding: 24, borderColor: "rgba(232,96,96,0.3)" }}>
-                <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--rose)", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}><Icon name="vault" size={13} color="var(--rose)" />CV VAULT --- LINKEDIN STORES YOUR RESUMES</div>
-                <div style={{ fontSize: 12, color: "var(--cream-text)", lineHeight: 1.8, marginBottom: 16 }}>
-                  LinkedIn retains <strong style={{ color: "var(--rose)" }}>{privateAssets.length} private identity asset{privateAssets.length !== 1 ? "s" : ""}</strong> including uploaded resumes and CVs.
+              {/* ── Verifications — Badge Cards ─────────────────────────── */}
+              {verifications && verifications.length > 0 && (
+                <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
+                  <SectionLabel color="var(--cream-muted)" icon="verify">IDENTITY VERIFICATIONS</SectionLabel>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {verifications.map((v, i) => {
+                      const isExpired = v.expiry && new Date(v.expiry) < new Date();
+                      const accent = isExpired ? "var(--rose)" : "var(--green)";
+                      return (
+                        <div key={i} className="card" style={{
+                          padding: "16px 20px", borderLeft: `4px solid ${accent}`,
+                          display: "flex", alignItems: "center", gap: 14,
+                          animation: `floatIn 0.4s ${i * 0.1}s ease forwards`, opacity: 0,
+                        }}>
+                          {/* Shield icon */}
+                          <svg width="24" height="28" viewBox="0 0 24 28" fill="none" style={{ flexShrink: 0 }}>
+                            <path d="M12 2L2 7v7c0 6.55 4.27 12.68 10 14.16C17.73 26.68 22 20.55 22 14V7L12 2z" fill={`${accent}11`} stroke={accent} strokeWidth="1.2" />
+                            {!isExpired && <path d="M8 14l3 3 5-5" stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
+                            {isExpired && <><line x1="9" y1="11" x2="15" y2="17" stroke={accent} strokeWidth="1.5" /><line x1="15" y1="11" x2="9" y2="17" stroke={accent} strokeWidth="1.5" /></>}
+                          </svg>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, color: "var(--cream-text)", fontWeight: 700 }}>{v.type || "Identity Verification"}</div>
+                            <div style={{ fontSize: 11, color: "var(--cream-muted)", marginTop: 2 }}>{[v.docType, v.provider, v.org].filter(Boolean).join(" · ")}</div>
+                          </div>
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div style={{ fontSize: 11, color: accent, fontFamily: "'Space Mono', monospace" }}>{isExpired ? "EXPIRED" : "VERIFIED"}</div>
+                            <div style={{ fontSize: 9, color: "var(--cream-muted)", marginTop: 2 }}>{v.date}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                {privateAssets.slice(0, 3).map((asset, i) => {
-                  const name = asset["Asset Name"] || asset["Name"] || asset["File Name"] || Object.values(asset).find(v => v && v.length > 2) || "";
-                  const preview = name.length > 120 ? name.slice(0, 120) + "..." : name;
-                  return (
-                    <div key={i} style={{ padding: "10px 14px", background: "rgba(232,96,96,0.04)", border: "1px solid rgba(232,96,96,0.15)", marginBottom: 8, fontSize: 11, color: "var(--cream-muted)", fontFamily: "Space Mono", wordBreak: "break-all" }}>
-                      {preview || `Asset ${i + 1}`}
-                    </div>
-                  );
-                })}
-                <div style={{ fontSize: 11, color: "var(--rose)", marginTop: 12, lineHeight: 1.7 }}>
-                  Consider reviewing and removing outdated uploads via LinkedIn Settings.
-                </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* AI Coach */}
-          {aiCoach && (
-            <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 32 }}>
-              <SectionLabel color="var(--cream-muted)" icon="ai">LINKEDIN AI INTERACTIONS</SectionLabel>
-              <div className="card" style={{ padding: 24 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: 16 }}>
-                  <div style={{ padding: "12px 10px", background: "var(--cream)", border: "1px solid var(--cream-border)", textAlign: "center" }}>
-                    <div className="serif" style={{ fontSize: 22, color: "var(--gold)", lineHeight: 1, marginBottom: 4 }}><CountUp value={aiCoach.guideTotal} /></div>
-                    <div style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>GUIDE MESSAGES</div>
-                  </div>
-                  <div style={{ padding: "12px 10px", background: "var(--cream)", border: "1px solid var(--cream-border)", textAlign: "center" }}>
-                    <div className="serif" style={{ fontSize: 22, color: "var(--teal)", lineHeight: 1, marginBottom: 4 }}>{aiCoach.coachTotal}</div>
-                    <div style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>COACH MESSAGES</div>
-                  </div>
-                </div>
-                {aiCoach.guideTopics.length > 0 && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 10 }}>GUIDE TOPICS</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {aiCoach.guideTopics.map(([topic, count], i) => (
-                        <span key={i} style={{ padding: "4px 12px", border: "1px solid var(--gold-dim)", fontSize: 11, color: "var(--gold)" }}>{topic} ({count})</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {aiCoach.coachTopics.length > 0 && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 10 }}>LEARNING COACH TOPICS</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {aiCoach.coachTopics.map(([topic, count], i) => (
-                        <span key={i} style={{ padding: "4px 12px", border: "1px solid var(--teal-dim)", fontSize: 11, color: "var(--teal)" }}>{topic} ({count})</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {aiCoach.jobTitlesAnalysed.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 10 }}>JOB TITLES AI ANALYSED FOR YOU</div>
-                    {aiCoach.jobTitlesAnalysed.map((t, i) => (
-                      <div key={i} style={{ fontSize: 12, color: "var(--cream-text)", padding: "6px 0", borderBottom: i < aiCoach.jobTitlesAnalysed.length - 1 ? "1px solid var(--cream-border)" : "none" }}>{t}</div>
+              {/* ── Services Marketplace — Service Cards ────────────────── */}
+              {providers && providers.length > 0 && (
+                <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
+                  <SectionLabel color="var(--cream-muted)" icon="services">SERVICES MARKETPLACE</SectionLabel>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+                    {providers.map((p, i) => (
+                      <div key={i} className="card" style={{ padding: "18px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                          {/* Storefront icon */}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
+                          </svg>
+                          <span style={{ fontSize: 10, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>SERVICE LISTING</span>
+                          {p.remote === "true" && (
+                            <span style={{ fontSize: 8, padding: "2px 6px", background: "rgba(61,214,200,0.08)", border: "1px solid rgba(61,214,200,0.2)", color: "var(--teal)", marginLeft: "auto" }}>REMOTE</span>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                          {(p.category || "").split(";").filter(Boolean).map((cat, j) => (
+                            <span key={j} style={{ padding: "3px 10px", border: "1px solid var(--teal-dim)", fontSize: 10, color: "var(--teal)" }}>{cat.trim()}</span>
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--cream-muted)" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: p.status === "ACTIVE" || p.status === "Active" ? "var(--green)" : "var(--cream-muted)" }} />
+                            {p.status || "Unknown"}
+                          </span>
+                          {p.created && <span>{p.created}</span>}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                )}
-                <div style={{ fontSize: 11, color: "var(--rose)", marginTop: 14, lineHeight: 1.7 }}>
-                  LinkedIn stores your conversations with its AI tools --- including job match analyses and career coaching.
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* Premium Spend */}
-          {spending && spending.currencies.length > 0 && (
-            <div className="scroll-reveal" style={{ marginBottom: 32 }}>
-              <SectionLabel color="var(--cream-muted)" icon="spend">PREMIUM SPEND</SectionLabel>
-              <div className="card" style={{ padding: 24 }}>
-                <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(spending.currencies.length + 1, 4)},1fr)`, gap: 10, marginBottom: 20 }}>
-                  <div style={{ padding: "12px 10px", background: "var(--cream)", border: "1px solid var(--cream-border)", textAlign: "center" }}>
-                    <div className="serif" style={{ fontSize: 22, color: "var(--gold)", lineHeight: 1, marginBottom: 4 }}><CountUp value={spending.totalTransactions} /></div>
-                    <div style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>TRANSACTIONS</div>
-                  </div>
-                  {spending.currencies.map((cur, i) => (
-                    <div key={i} style={{ padding: "12px 10px", background: "var(--cream)", border: "1px solid var(--cream-border)", textAlign: "center" }}>
-                      <div className="serif" style={{ fontSize: 22, color: "var(--gold)", lineHeight: 1, marginBottom: 4 }}>{cur.currency === "USD" ? "$" : cur.currency === "GBP" ? "£" : cur.currency === "EUR" ? "€" : ""}{cur.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-                      <div style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>{cur.currency} · {cur.count} ITEMS</div>
+              {/* ── Inferences — Weighted Cloud ─────────────────────────── */}
+              {inferences && inferences.length > 0 && (
+                <div className="scroll-reveal" style={{ marginBottom: 64 }}>
+                  <SectionLabel color="var(--cream-muted)" icon="inference">LINKEDIN'S INFERENCES</SectionLabel>
+                  <div className="card" style={{ padding: 24 }}>
+                    <div style={{ fontSize: 13, color: "var(--cream-text)", lineHeight: 1.8, marginBottom: 16 }}>
+                      LinkedIn has drawn <strong style={{ color: "var(--rose)" }}>{inferences.length} inferences</strong> about you based on your activity.
                     </div>
-                  ))}
-                </div>
-                {spending.yearBreakdown.length > 0 && (() => {
-                  const spendMax = Math.max(...spending.yearBreakdown.map(y => y.total), 1);
-                  return (
-                    <>
-                      <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>YEARLY BREAKDOWN</div>
-                      {spending.yearBreakdown.map((y, i) => (
-                        <SparkBar key={i} label={`${y.year} (${y.currency})`} value={y.total} max={spendMax} count={Math.round(y.total)} total={spending.currencies.reduce((s, cur) => s + cur.total, 0)} color="var(--gold)" delay={i * 0.05} />
-                      ))}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* Content Creator */}
-          {contentCreator && (
-            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 32 }}>
-              <SectionLabel color="var(--cream-muted)" icon="content">CONTENT CREATOR</SectionLabel>
-              <div className="card" style={{ padding: 24 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(100px,1fr))", gap: 10, marginBottom: 20 }}>
-                  <div style={{ padding: "12px 10px", background: "var(--cream)", border: "1px solid var(--cream-border)", textAlign: "center" }}>
-                    <div className="serif" style={{ fontSize: 22, color: "var(--teal)", lineHeight: 1, marginBottom: 4 }}>{contentCreator.totalPieces}</div>
-                    <div style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>MEDIA ITEMS</div>
-                  </div>
-                  {contentCreator.byType.map(([type, count], i) => (
-                    <div key={i} style={{ padding: "12px 10px", background: "var(--cream)", border: "1px solid var(--cream-border)", textAlign: "center" }}>
-                      <div className="serif" style={{ fontSize: 22, color: "var(--teal)", lineHeight: 1, marginBottom: 4 }}>{count}</div>
-                      <div style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>{type.toUpperCase()}</div>
-                    </div>
-                  ))}
-                </div>
-                {contentCreator.byYear.length > 0 && (
-                  <>
-                    <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>PUBLISHED BY YEAR</div>
-                    {contentCreator.byYear.map(([year, count], i) => (
-                      <SparkBar key={i} label={year} value={count} max={Math.max(...contentCreator.byYear.map(([, ct]) => ct))} count={count} total={contentCreator.totalPieces} color="var(--teal)" delay={i * 0.05} />
-                    ))}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Verifications */}
-          {verifications && verifications.length > 0 && (
-            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 32 }}>
-              <SectionLabel color="var(--cream-muted)" icon="verify">IDENTITY VERIFICATIONS</SectionLabel>
-              <div className="card" style={{ padding: 24 }}>
-                {verifications.map((v, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: i < verifications.length - 1 ? "1px solid var(--cream-border)" : "none" }}>
-                    <div>
-                      <div style={{ fontSize: 12, color: "var(--cream-text)", fontWeight: 700 }}>{v.type || "Identity Verification"}</div>
-                      <div style={{ fontSize: 10, color: "var(--cream-muted)" }}>{[v.docType, v.provider, v.org].filter(Boolean).join(" · ")}</div>
-                    </div>
-                    <div style={{ fontSize: 10, color: "var(--green)", whiteSpace: "nowrap" }}>{v.date}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Services Marketplace */}
-          {providers && providers.length > 0 && (
-            <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 32 }}>
-              <SectionLabel color="var(--cream-muted)" icon="services">SERVICES MARKETPLACE PROFILE</SectionLabel>
-              <div className="card" style={{ padding: 24 }}>
-                {providers.map((p, i) => (
-                  <div key={i} style={{ padding: "12px 0", borderBottom: i < providers.length - 1 ? "1px solid var(--cream-border)" : "none" }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
-                      {(p.category || "").split(";").filter(Boolean).map((cat, j) => (
-                        <span key={j} style={{ padding: "3px 10px", border: "1px solid var(--teal-dim)", fontSize: 10, color: "var(--teal)" }}>{cat.trim()}</span>
-                      ))}
-                    </div>
-                    <div style={{ fontSize: 10, color: "var(--cream-muted)" }}>
-                      {[p.remote === "true" ? "Remote available" : "", p.status].filter(Boolean).join(" · ")}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                      {inferences.map((tag, i) => {
+                        const isHighlight = i % 5 === 0;
+                        return (
+                          <span key={i} style={{
+                            padding: isHighlight ? "5px 14px" : "4px 11px",
+                            border: `1px solid ${isHighlight ? "rgba(232,96,96,0.3)" : "var(--cream-border)"}`,
+                            fontSize: isHighlight ? 12 : 10,
+                            color: isHighlight ? "var(--rose)" : "var(--cream-text)",
+                            background: isHighlight ? "rgba(232,96,96,0.04)" : "transparent",
+                            transition: "all 0.2s ease",
+                            animation: `floatIn 0.3s ${Math.min(i * 0.03, 0.8)}s ease forwards`, opacity: 0,
+                            cursor: "default",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--rose)"; e.currentTarget.style.background = "rgba(232,96,96,0.06)"; e.currentTarget.style.color = "var(--rose)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = isHighlight ? "rgba(232,96,96,0.3)" : "var(--cream-border)"; e.currentTarget.style.background = isHighlight ? "rgba(232,96,96,0.04)" : "transparent"; e.currentTarget.style.color = isHighlight ? "var(--rose)" : "var(--cream-text)"; }}
+                          >
+                            {tag}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Inferences */}
-          {inferences && inferences.length > 0 && (
-            <div className="scroll-reveal" style={{ marginBottom: 32 }}>
-              <SectionLabel color="var(--cream-muted)" icon="inference">LINKEDIN'S INFERENCES ABOUT YOU</SectionLabel>
-              <div className="card" style={{ padding: 24 }}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {inferences.map((tag, i) => (
-                    <span key={i} style={{ padding: "4px 12px", border: "1px solid var(--teal-dim)", fontSize: 11, color: "var(--teal)", animation: `floatIn 0.4s ${i * 0.04}s cubic-bezier(0.22,1,0.36,1) forwards`, opacity: 0 }}>{tag}</span>
-                  ))}
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {!adTargeting && !inferences && (
-            <div className="scroll-reveal" style={{ marginBottom: 32 }}>
-              <div className="card" style={{ padding: 24, textAlign: "center" }}>
-                <div className="serif" style={{ fontSize: 20, marginBottom: 10, color: "var(--cream-text)" }}>Not in your export</div>
-                <div style={{ fontSize: 13, color: "var(--cream-muted)", lineHeight: 1.8, maxWidth: 400, margin: "0 auto" }}>
-                  Ad targeting data requires the full archive export. It takes 24-48 hrs but reveals exactly how LinkedIn has profiled you.
+              {/* No data fallback */}
+              {!adTargeting && !inferences && (
+                <div className="scroll-reveal" style={{ marginBottom: 64 }}>
+                  <div className="card" style={{ padding: 24, textAlign: "center" }}>
+                    <div className="serif" style={{ fontSize: 22, marginBottom: 10, color: "var(--cream-text)" }}>Not in your export</div>
+                    <div style={{ fontSize: 13, color: "var(--cream-muted)", lineHeight: 1.8, maxWidth: 400, margin: "0 auto" }}>
+                      Ad targeting data requires the full archive export. It takes 24-48 hrs but reveals exactly how LinkedIn has profiled you.
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       <ChapterDivider />
@@ -3194,21 +4544,21 @@ function Results({ data, onReset }) {
           <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px", boxSizing: "border-box" }}>
             {/* Company Bubble Chart */}
             {careerIntent && careerIntent.topCompanies.length > 0 && (
-              <div className="scroll-reveal" style={{ textAlign: "center", marginBottom: 40 }}>
+              <div className="scroll-reveal" style={{ textAlign: "center", marginBottom: 80 }}>
                 <CompanyBubbleChart companies={careerIntent.topCompanies} />
               </div>
             )}
 
             {/* Stat cards */}
             {careerIntent && (
-              <div className="scroll-reveal scroll-reveal-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 32 }}>
+              <div className="scroll-reveal scroll-reveal-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 64 }}>
                 {[
                   { n: careerIntent.savedCount, suf: "", l: "Jobs saved" },
                   { n: careerIntent.appliedCount, suf: "", l: "Applied to" },
                   { n: careerIntent.saveToApplyRatio, suf: "%", l: "Save-to-apply ratio" },
                 ].map((s, i) => (
                   <div key={i} className="card" style={{ padding: 20, textAlign: "center" }}>
-                    <div className="serif" style={{ fontSize: 28, color: i === 2 ? "var(--teal)" : "var(--gold)", lineHeight: 1, marginBottom: 6 }}><CountUp value={s.n} suffix={s.suf} /></div>
+                    <div className="serif" style={{ fontSize: 32, color: i === 2 ? "var(--teal)" : "var(--gold)", lineHeight: 1, marginBottom: 6 }}><CountUp value={s.n} suffix={s.suf} /></div>
                     <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em" }}>{s.l.toUpperCase()}</div>
                   </div>
                 ))}
@@ -3217,10 +4567,10 @@ function Results({ data, onReset }) {
 
             {/* Job Seeker Preferences */}
             {jobSeekerPrefs && (
-              <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 32 }}>
+              <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
                 <div className="card" style={{ padding: 24, borderColor: "rgba(232,96,96,0.2)" }}>
-                  <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--rose)", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}><Icon name="jobseeker" size={13} color="var(--rose)" />YOUR JOB SEEKER PREFERENCES</div>
-                  <div style={{ fontSize: 12, color: "var(--text)", lineHeight: 1.8, marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--rose)", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}><Icon name="jobseeker" size={13} color="var(--rose)" />YOUR JOB SEEKER PREFERENCES</div>
+                  <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.8, marginBottom: 16 }}>
                     LinkedIn stores your job search configuration --- what you're looking for, where, and how urgently.
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -3232,7 +4582,7 @@ function Results({ data, onReset }) {
                     ].map((item, i) => (
                       <div key={i} style={{ padding: "10px 12px", background: "var(--bg)", border: "1px solid var(--border)" }}>
                         <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em", marginBottom: 4 }}>{item.l}</div>
-                        <div style={{ fontSize: 12, color: "var(--gold)", textTransform: "capitalize" }}>{item.v.toLowerCase()}</div>
+                        <div style={{ fontSize: 13, color: "var(--gold)", textTransform: "capitalize" }}>{item.v.toLowerCase()}</div>
                       </div>
                     ))}
                   </div>
@@ -3241,7 +4591,7 @@ function Results({ data, onReset }) {
                       <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em", marginBottom: 8 }}>PREFERRED LOCATIONS</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {jobSeekerPrefs.locations.map((loc, i) => (
-                          <span key={i} style={{ padding: "4px 10px", border: "1px solid var(--border-bright)", fontSize: 10, color: "var(--text)" }}>{loc}</span>
+                          <span key={i} style={{ padding: "4px 10px", border: "1px solid var(--border-bright)", fontSize: 11, color: "var(--text)" }}>{loc}</span>
                         ))}
                       </div>
                     </div>
@@ -3251,7 +4601,7 @@ function Results({ data, onReset }) {
                       <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em", marginBottom: 8 }}>JOB TYPES</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {jobSeekerPrefs.jobTypes.map((jt, i) => (
-                          <span key={i} style={{ padding: "4px 10px", border: "1px solid var(--teal-dim)", fontSize: 10, color: "var(--teal)", textTransform: "capitalize" }}>{jt.toLowerCase().replace(/_/g, " ")}</span>
+                          <span key={i} style={{ padding: "4px 10px", border: "1px solid var(--teal-dim)", fontSize: 11, color: "var(--teal)", textTransform: "capitalize" }}>{jt.toLowerCase().replace(/_/g, " ")}</span>
                         ))}
                       </div>
                     </div>
@@ -3261,7 +4611,7 @@ function Results({ data, onReset }) {
                       <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em", marginBottom: 8 }}>TARGET JOB TITLES</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {jobSeekerPrefs.jobTitles.map((jt, i) => (
-                          <span key={i} style={{ padding: "4px 10px", border: "1px solid var(--gold-dim)", fontSize: 10, color: "var(--gold)" }}>{jt}</span>
+                          <span key={i} style={{ padding: "4px 10px", border: "1px solid var(--gold-dim)", fontSize: 11, color: "var(--gold)" }}>{jt}</span>
                         ))}
                       </div>
                     </div>
@@ -3271,7 +4621,7 @@ function Results({ data, onReset }) {
                       <div style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.1em", marginBottom: 8 }}>DREAM COMPANIES</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {jobSeekerPrefs.dreamCompanies.map((dc, i) => (
-                          <span key={i} style={{ padding: "4px 10px", border: "1px solid var(--gold)", fontSize: 10, color: "var(--gold)", background: "rgba(212,168,67,0.08)" }}>{dc}</span>
+                          <span key={i} style={{ padding: "4px 10px", border: "1px solid var(--gold)", fontSize: 11, color: "var(--gold)", background: "rgba(212,168,67,0.08)" }}>{dc}</span>
                         ))}
                       </div>
                     </div>
@@ -3285,7 +4635,7 @@ function Results({ data, onReset }) {
               const roleEntries = Object.entries(careerIntent.roleCategories).sort((a, b) => b[1] - a[1]);
               const totalRoles = roleEntries.reduce((s, [, ct]) => s + ct, 0);
               return (
-                <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 32 }}>
+                <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
                   <SectionLabel icon="roles">ROLE CATEGORIES</SectionLabel>
                   <div className="card" style={{ padding: 24 }}>
                     <RadialSegments industries={Object.fromEntries(roleEntries)} total={totalRoles} />
@@ -3296,11 +4646,11 @@ function Results({ data, onReset }) {
 
             {/* Search Keywords */}
             {careerIntent && careerIntent.searchKeywords.length > 0 && (
-              <div className="scroll-reveal" style={{ marginBottom: 32 }}>
+              <div className="scroll-reveal" style={{ marginBottom: 64 }}>
                 <SectionLabel icon="search">JOB ALERT KEYWORDS</SectionLabel>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
                   {careerIntent.searchKeywords.map((kw, i) => (
-                    <span key={i} style={{ padding: "8px 18px", border: "1px solid var(--teal-dim)", color: "var(--teal)", fontSize: 12, background: "rgba(61,214,200,0.05)", animation: `floatIn 0.5s ${i * 0.06}s cubic-bezier(0.22,1,0.36,1) forwards`, opacity: 0 }}>{kw}</span>
+                    <span key={i} style={{ padding: "8px 18px", border: "1px solid var(--teal-dim)", color: "var(--teal)", fontSize: 13, background: "rgba(61,214,200,0.05)", animation: `floatIn 0.5s ${i * 0.06}s cubic-bezier(0.22,1,0.36,1) forwards`, opacity: 0 }}>{kw}</span>
                   ))}
                 </div>
               </div>
@@ -3308,16 +4658,16 @@ function Results({ data, onReset }) {
 
             {/* Recent Applications */}
             {careerIntent && careerIntent.recentApplications.length > 0 && (
-              <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 32 }}>
+              <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
                 <SectionLabel icon="career">RECENT APPLICATIONS</SectionLabel>
                 <div className="card" style={{ padding: 24 }}>
                   {careerIntent.recentApplications.map((app, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: i < careerIntent.recentApplications.length - 1 ? "1px solid var(--border)" : "none", gap: 16 }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, color: "var(--text)", fontWeight: 700, marginBottom: 2 }}>{app.title}</div>
+                        <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 2 }}>{app.title}</div>
                         <div style={{ fontSize: 11, color: "var(--muted)" }}>{app.company}</div>
                       </div>
-                      {app.date && <div style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" }}>{app.date}</div>}
+                      {app.date && <div style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{app.date}</div>}
                     </div>
                   ))}
                 </div>
@@ -3326,10 +4676,10 @@ function Results({ data, onReset }) {
 
             {/* Company Follows */}
             {companyFollows && (
-              <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 32 }}>
+              <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <SectionLabel icon="follow">COMPANIES YOU FOLLOW</SectionLabel>
-                  <span style={{ fontSize: 10, color: "var(--muted)" }}>{companyFollows.total} companies</span>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>{companyFollows.total} companies</span>
                 </div>
                 <div className="card" style={{ padding: 24 }}>
                   {companyFollows.overlap > 0 && (
@@ -3341,12 +4691,12 @@ function Results({ data, onReset }) {
                   )}
                   {companyFollows.recent.map((co, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < companyFollows.recent.length - 1 ? "1px solid var(--border)" : "none" }}>
-                      <span style={{ fontSize: 12, color: "var(--text)" }}>
+                      <span style={{ fontSize: 13, color: "var(--text)" }}>
                         {co.name}
-                        {co.savedJob && <span style={{ fontSize: 8, marginLeft: 8, padding: "2px 6px", background: "rgba(212,168,67,0.15)", border: "1px solid var(--gold-dim)", color: "var(--gold)", letterSpacing: "0.1em" }}>SAVED JOB</span>}
-                        {NOTABLE_COMPANIES.has(co.name) && <span style={{ fontSize: 8, marginLeft: 4, padding: "2px 6px", background: "rgba(61,214,200,0.1)", border: "1px solid var(--teal-dim)", color: "var(--teal)", letterSpacing: "0.08em" }}>NOTABLE</span>}
+                        {co.savedJob && <span style={{ fontSize: 9, marginLeft: 8, padding: "2px 6px", background: "rgba(212,168,67,0.15)", border: "1px solid var(--gold-dim)", color: "var(--gold)", letterSpacing: "0.1em" }}>SAVED JOB</span>}
+                        {NOTABLE_COMPANIES.has(co.name) && <span style={{ fontSize: 9, marginLeft: 4, padding: "2px 6px", background: "rgba(61,214,200,0.1)", border: "1px solid var(--teal-dim)", color: "var(--teal)", letterSpacing: "0.08em" }}>NOTABLE</span>}
                       </span>
-                      <span style={{ fontSize: 10, color: "var(--muted)" }}>{co.date}</span>
+                      <span style={{ fontSize: 11, color: "var(--muted)" }}>{co.date}</span>
                     </div>
                   ))}
                 </div>
@@ -3355,16 +4705,16 @@ function Results({ data, onReset }) {
 
             {/* Saved Application Answers */}
             {savedAnswers && savedAnswers.length > 0 && (
-              <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 32 }}>
+              <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
                 <div className="card" style={{ padding: 24, borderColor: "rgba(232,96,96,0.15)" }}>
-                  <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--rose)", marginBottom: 14 }}>SAVED APPLICATION ANSWERS</div>
-                  <div style={{ fontSize: 12, color: "var(--text)", lineHeight: 1.8, marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--rose)", marginBottom: 14 }}>SAVED APPLICATION ANSWERS</div>
+                  <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.8, marginBottom: 14 }}>
                     LinkedIn stores {savedAnswers.length} pre-saved answers you've used across job applications.
                   </div>
                   {savedAnswers.slice(0, 8).map((a, i) => (
                     <div key={i} style={{ padding: "10px 0", borderBottom: i < Math.min(savedAnswers.length, 8) - 1 ? "1px solid var(--border)" : "none" }}>
-                      <div style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em", marginBottom: 4 }}>{a["Question"] || `Question ${i + 1}`}</div>
-                      <div style={{ fontSize: 12, color: "var(--text)", maxHeight: 60, overflow: "hidden", maskImage: "linear-gradient(to bottom, black 70%, transparent)", WebkitMaskImage: "linear-gradient(to bottom, black 70%, transparent)" }}>{a["Answer"] || ""}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", marginBottom: 4 }}>{a["Question"] || `Question ${i + 1}`}</div>
+                      <div style={{ fontSize: 13, color: "var(--text)", maxHeight: 60, overflow: "hidden", maskImage: "linear-gradient(to bottom, black 70%, transparent)", WebkitMaskImage: "linear-gradient(to bottom, black 70%, transparent)" }}>{a["Answer"] || ""}</div>
                     </div>
                   ))}
                 </div>
@@ -3393,7 +4743,7 @@ function Results({ data, onReset }) {
             <div style={{ marginTop: 16 }}>
               <button onClick={onReset} className="btn-ghost">RUN ANOTHER ANALYSIS</button>
             </div>
-            <div style={{ marginTop: 32, fontSize: 10, color: "var(--muted)", letterSpacing: "0.1em" }}>
+            <div style={{ marginTop: 32, fontSize: 11, color: "var(--muted)", letterSpacing: "0.1em" }}>
               Runs entirely in your browser --- nothing stored or transmitted
             </div>
           </div>
