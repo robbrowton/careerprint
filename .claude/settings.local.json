@@ -18,7 +18,13 @@
       "Bash(perl:*)",
       "Bash(sips:*)",
       "Bash(ls:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)",
+      "mcp__claude_ai_Vercel__deploy_to_vercel",
+      "mcp__claude_ai_Vercel__list_teams",
+      "mcp__claude_ai_Vercel__list_projects",
+      "mcp__claude_ai_Vercel__list_deployments"
     ]
   }
 }

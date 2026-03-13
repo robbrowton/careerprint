@@ -1289,12 +1289,26 @@ export default function App() {
   const process = useCallback(async (file) => {
     setError(""); setStage("analysing");
     try {
+      // File size guard (50 MB)
+      const MAX_FILE_SIZE = 50 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 50 MB. Try requesting a smaller export from LinkedIn.`);
+      }
+
+      // Helper: wrap a promise with a timeout
+      const withTimeout = (promise, ms, label) =>
+        Promise.race([
+          promise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s. The file may be too large or corrupted.`)), ms)),
+        ]);
+
       let files = {};
       if (file.name.endsWith(".zip")) {
-        files = await processZip(file);
+        files = await withTimeout(processZip(file), 30000, "Zip extraction");
         if (!files.connections) throw new Error("Couldn't find Connections.csv in the zip.");
       } else if (file.name.endsWith(".csv")) {
-        files.connections = parseCSV(await file.text());
+        const text = await withTimeout(file.text(), 10000, "File reading");
+        files.connections = parseCSV(text);
       } else {
         throw new Error("Please upload your LinkedIn zip export or Connections.csv");
       }
@@ -1333,7 +1347,18 @@ export default function App() {
         filesFound:  Object.keys(files),
       });
       setStage("results");
-    } catch(e) { setError(e.message); setStage("upload"); }
+    } catch(e) {
+      const msg = e.message || "Unknown error";
+      // Provide user-friendly messages for common failure modes
+      if (msg.includes("invalid zip") || msg.includes("Corrupted") || msg.includes("End of data")) {
+        setError("This file appears to be corrupted or is not a valid zip archive. Please re-download your LinkedIn export and try again.");
+      } else if (msg.includes("timed out")) {
+        setError(msg);
+      } else {
+        setError(msg);
+      }
+      setStage("upload");
+    }
   },[]);
 
   const onDrop = useCallback(e=>{
@@ -1400,6 +1425,7 @@ function Analysing() {
   const steps = ["Parsing connection data...","Classifying industries...","Scoring seniority levels...","Mapping career timeline...","Analysing skills & endorsements...","Cross-referencing endorsement reciprocity...","Scanning message engagement depth...","Analysing career intent signals...","Checking LinkedIn's hidden vault...","Reading LinkedIn AI conversations...","Parsing published articles...","Mapping company follows & events...","Cataloguing learning activity...","Calculating network health...","Generating insights..."];
   const [step,setStep] = useState(0);
   useEffect(()=>{const t=setInterval(()=>setStep(s=>Math.min(s+1,steps.length-1)),400);return()=>clearInterval(t);},[]);
+  const progress = Math.round(((step + 1) / steps.length) * 100);
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:32}}>
       <div style={{position:"relative"}}>
@@ -1408,7 +1434,11 @@ function Analysing() {
       </div>
       <div style={{textAlign:"center"}}>
         <div className="serif" style={{fontSize: 22,fontWeight:400,marginBottom:8}}>Mapping your network</div>
-        <div style={{fontSize:11,color:"var(--gold)",letterSpacing:"0.15em",animation:"pulse 1s ease infinite"}}>{steps[step]}</div>
+        <div style={{fontSize:11,color:"var(--gold)",letterSpacing:"0.15em",animation:"pulse 1s ease infinite",marginBottom:12}}>{steps[step]}</div>
+        <div style={{width:200,height:2,background:"var(--border)",borderRadius:1,margin:"0 auto"}}>
+          <div style={{width:`${progress}%`,height:"100%",background:"var(--gold)",borderRadius:1,transition:"width 0.4s ease"}}/>
+        </div>
+        <div style={{fontSize:10,color:"var(--muted)",marginTop:6,letterSpacing:"0.1em"}}>{progress}%</div>
       </div>
     </div>
   );
