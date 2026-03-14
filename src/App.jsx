@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import React, { Component, useState, useCallback, useRef, useEffect } from "react";
 import JSZip from "jszip";
 
 // ─── Global styles ────────────────────────────────────────────────────────────
@@ -1272,6 +1272,47 @@ async function processZip(file) {
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
+// ─── Error Boundary ──────────────────────────────────────────────────────────
+class ReportErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("[CareerPrint] Report rendering error:", error);
+    console.error("[CareerPrint] Component stack:", errorInfo.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",maxWidth:560,margin:"0 auto",textAlign:"center"}}>
+          <div style={{fontSize:48,marginBottom:24}}>⚠️</div>
+          <h2 className="serif" style={{fontSize:28,fontWeight:400,marginBottom:12}}>Something went wrong</h2>
+          <p style={{color:"var(--muted)",fontSize:13,lineHeight:1.8,marginBottom:24}}>
+            An error occurred while rendering your analysis report. This is usually caused by unexpected data in your LinkedIn export.
+          </p>
+          <div style={{padding:"12px 16px",background:"rgba(232,96,96,0.08)",border:"1px solid rgba(232,96,96,0.25)",color:"var(--rose)",fontSize:12,marginBottom:24,lineHeight:1.6,textAlign:"left",maxWidth:"100%",overflow:"auto",borderRadius:4}}>
+            {this.state.error?.message || "Unknown error"}
+          </div>
+          <button
+            onClick={() => { this.setState({ hasError: false, error: null }); this.props.onReset?.(); }}
+            style={{padding:"12px 32px",background:"var(--gold)",color:"var(--bg)",border:"none",cursor:"pointer",fontSize:13,letterSpacing:"0.1em",fontWeight:600}}
+          >
+            ↑ TRY ANOTHER FILE
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [stage, setStage] = useState("upload");
   const [analysed, setAnalysed] = useState(null);
@@ -1370,7 +1411,7 @@ export default function App() {
     <>
       {stage==="upload"    && <Upload onDrop={onDrop} dragOver={dragOver} setDragOver={setDragOver} fileRef={fileRef} process={process} error={error}/>}
       {stage==="analysing" && <Analysing/>}
-      {stage==="results"   && analysed && <Results data={analysed} onReset={()=>{setStage("upload");setAnalysed(null);}}/>}
+      {stage==="results"   && analysed && <ReportErrorBoundary onReset={()=>{setStage("upload");setAnalysed(null);}}><Results data={analysed} onReset={()=>{setStage("upload");setAnalysed(null);}}/></ReportErrorBoundary>}
     </>
   );
 }
