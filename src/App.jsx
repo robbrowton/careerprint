@@ -1,5 +1,7 @@
 import React, { Component, useState, useCallback, useRef, useEffect } from "react";
 import JSZip from "jszip";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 // ─── Global styles ────────────────────────────────────────────────────────────
 const GLOBAL_CSS = `
@@ -2817,10 +2819,128 @@ function Results({ data, onReset }) {
   const [sealAnimating, setSealAnimating] = useState(false);
   const breakSeal = () => { if (sealAnimating) return; setSealAnimating(true); setTimeout(() => setDossierOpen(true), 800); };
 
+  // ─── PDF Export ──────────────────────────────────────────────────────────────
+  const [exporting, setExporting] = useState(false);
+  const reportRef = useRef(null);
+
+  const exportPDF = async () => {
+    if (exporting || !reportRef.current) return;
+    setExporting(true);
+    try {
+      // Force all scroll-reveal elements to be visible for capture
+      const reveals = reportRef.current.querySelectorAll(".scroll-reveal");
+      reveals.forEach(el => {
+        el.style.opacity = "1";
+        el.style.transform = "none";
+      });
+
+      const chapterRefs = [ch1Ref, ch2Ref, ch3Ref, ch4Ref, ch5Ref];
+      const chapterNames = ["Network at a Glance", "Who You Know", "Your Reputation", "What LinkedIn Knows", "Career Intent"];
+
+      // A4 dimensions in mm
+      const pageW = 297; // landscape width
+      const pageH = 210; // landscape height
+      const margin = 12;
+      const contentW = pageW - margin * 2;
+      const contentH = pageH - margin * 2;
+
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+      // ── Cover page ──
+      pdf.setFillColor(5, 5, 8);
+      pdf.rect(0, 0, pageW, pageH, "F");
+      pdf.setTextColor(212, 168, 67);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(36);
+      pdf.text("CAREERPRINT", pageW / 2, pageH / 2 - 20, { align: "center" });
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(107, 101, 128);
+      pdf.text("Your career — as unique as your fingerprint", pageW / 2, pageH / 2, { align: "center" });
+      pdf.setFontSize(10);
+      pdf.setTextColor(226, 221, 214);
+      const stats = `${c.total.toLocaleString("en-US")} connections · ${c.networkAge} year${c.networkAge !== 1 ? "s" : ""} · ${filesFound.length} file${filesFound.length !== 1 ? "s" : ""} analysed`;
+      pdf.text(stats, pageW / 2, pageH / 2 + 16, { align: "center" });
+      pdf.setFontSize(8);
+      pdf.setTextColor(107, 101, 128);
+      pdf.text(`Generated ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, pageW / 2, pageH - 20, { align: "center" });
+
+      // ── Capture each chapter ──
+      for (let i = 0; i < chapterRefs.length; i++) {
+        const el = chapterRefs[i]?.current;
+        if (!el) continue;
+
+        const canvas = await html2canvas(el, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: i % 2 === 0 ? "#050508" : "#f5f0e8",
+          windowWidth: 1200,
+          onclone: (doc) => {
+            // Ensure all scroll-reveal elements are visible in the clone
+            doc.querySelectorAll(".scroll-reveal").forEach(e => {
+              e.style.opacity = "1";
+              e.style.transform = "none";
+              e.style.animation = "none";
+            });
+            // Remove the fixed navbar from the clone
+            const nav = doc.querySelector("[data-navbar]");
+            if (nav) nav.style.display = "none";
+          },
+        });
+
+        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+        const imgW = canvas.width;
+        const imgH = canvas.height;
+
+        // Scale image to fit page width, then slice into pages
+        const scaledH = (contentW / imgW) * imgH;
+        const pagesNeeded = Math.ceil(scaledH / contentH);
+
+        for (let p = 0; p < pagesNeeded; p++) {
+          pdf.addPage([pageW, pageH], "landscape");
+
+          // Background
+          const bgColor = i % 2 === 0 ? [5, 5, 8] : [245, 240, 232];
+          pdf.setFillColor(...bgColor);
+          pdf.rect(0, 0, pageW, pageH, "F");
+
+          // Clip to content area and draw the slice
+          const srcY = (p / pagesNeeded) * imgH;
+          const srcH = imgH / pagesNeeded;
+
+          // Create a temporary canvas for this slice
+          const sliceCanvas = document.createElement("canvas");
+          sliceCanvas.width = imgW;
+          sliceCanvas.height = Math.ceil(srcH);
+          const ctx = sliceCanvas.getContext("2d");
+          ctx.drawImage(canvas, 0, srcY, imgW, srcH, 0, 0, imgW, srcH);
+
+          const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
+          pdf.addImage(sliceData, "JPEG", margin, margin, contentW, contentH);
+
+          // Page footer
+          const textColor = i % 2 === 0 ? [107, 101, 128] : [107, 101, 96];
+          pdf.setTextColor(...textColor);
+          pdf.setFontSize(7);
+          pdf.text(`Chapter ${String(i + 1).padStart(2, "0")} · ${chapterNames[i]}`, margin, pageH - 5);
+          pdf.text("careerprint.ai", pageW - margin, pageH - 5, { align: "right" });
+        }
+      }
+
+      const fileName = `CareerPrint_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      pdf.save(fileName);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <div>
+    <div ref={reportRef}>
       {/* Top navbar + reading progress */}
-      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999 }}>
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999 }} data-navbar>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "6px 20px", background: "rgba(5,5,8,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)" }}>
           {/* Fingerprint icon */}
           <svg width={16} height={16} viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
@@ -2832,6 +2952,26 @@ function Results({ data, onReset }) {
           </svg>
           <span style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--gold)", fontFamily: "'Space Mono', monospace" }}>CAREERPRINT.AI</span>
           <span style={{ fontSize: 9, color: "var(--muted)", marginLeft: 4 }}>Your career — as unique as your fingerprint</span>
+          <button
+            onClick={exportPDF}
+            disabled={exporting}
+            style={{
+              position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "1px solid var(--border-bright)", borderRadius: 4,
+              padding: "4px 12px", cursor: exporting ? "wait" : "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+              fontSize: 9, letterSpacing: "0.15em", color: "var(--gold)",
+              fontFamily: "'Space Mono', monospace", opacity: exporting ? 0.5 : 0.8,
+              transition: "opacity 0.2s, border-color 0.2s",
+            }}
+            onMouseEnter={e => { if (!exporting) { e.currentTarget.style.opacity = "1"; e.currentTarget.style.borderColor = "var(--gold)"; } }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = exporting ? "0.5" : "0.8"; e.currentTarget.style.borderColor = "var(--border-bright)"; }}
+          >
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            {exporting ? "GENERATING..." : "DOWNLOAD PDF"}
+          </button>
         </div>
         <div style={{ height: 2, background: "transparent" }}>
           <div ref={progressRef} style={{ height: "100%", width: "0%", background: "linear-gradient(90deg, var(--gold), var(--teal))", transition: "width 0.1s linear" }} />
@@ -4808,9 +4948,22 @@ function Results({ data, onReset }) {
             <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.9, maxWidth: 480, margin: "0 auto 32px" }}>
               I built this because most professionals have no idea what's actually inside their LinkedIn data. If your results revealed something interesting --- connect and let me know.
             </p>
-            <a href="https://www.linkedin.com/in/robertbrowton" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ marginBottom: 16 }}>
-              CONNECT WITH ROB ON LINKEDIN
-            </a>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <a href="https://www.linkedin.com/in/robertbrowton" target="_blank" rel="noopener noreferrer" className="btn-primary">
+                CONNECT WITH ROB ON LINKEDIN
+              </a>
+              <button
+                onClick={exportPDF}
+                disabled={exporting}
+                className="btn-ghost"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, opacity: exporting ? 0.5 : 1 }}
+              >
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                {exporting ? "GENERATING..." : "DOWNLOAD PDF"}
+              </button>
+            </div>
             <div style={{ marginTop: 16 }}>
               <button onClick={onReset} className="btn-ghost">RUN ANOTHER ANALYSIS</button>
             </div>
