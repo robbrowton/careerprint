@@ -1,7 +1,7 @@
 import React, { Component, useState, useCallback, useRef, useEffect } from "react";
 import JSZip from "jszip";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
+// Lazy-loaded to avoid blocking render if modules fail to load
+const loadJsPDF = () => import("jspdf").then(m => m.jsPDF);
 
 // ─── Global styles ────────────────────────────────────────────────────────────
 const GLOBAL_CSS = `
@@ -2824,114 +2824,375 @@ function Results({ data, onReset }) {
   const reportRef = useRef(null);
 
   const exportPDF = async () => {
-    if (exporting || !reportRef.current) return;
+    if (exporting) return;
     setExporting(true);
     try {
-      // Force all scroll-reveal elements to be visible for capture
-      const reveals = reportRef.current.querySelectorAll(".scroll-reveal");
-      reveals.forEach(el => {
-        el.style.opacity = "1";
-        el.style.transform = "none";
-      });
+      const PDF = await loadJsPDF();
 
-      const chapterRefs = [ch1Ref, ch2Ref, ch3Ref, ch4Ref, ch5Ref];
-      const chapterNames = ["Network at a Glance", "Who You Know", "Your Reputation", "What LinkedIn Knows", "Career Intent"];
+      // A4 landscape
+      const W = 297, H = 210, M = 16;
+      const cW = W - M * 2, cH = H - M * 2;
+      const pdf = new PDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
-      // A4 dimensions in mm
-      const pageW = 297; // landscape width
-      const pageH = 210; // landscape height
-      const margin = 12;
-      const contentW = pageW - margin * 2;
-      const contentH = pageH - margin * 2;
+      // Colors
+      const DARK = [5, 5, 8];
+      const LIGHT = [245, 240, 232];
+      const GOLD = [212, 168, 67];
+      const TEAL = [61, 214, 200];
+      const MUTED = [107, 101, 128];
+      const TEXT_LIGHT = [226, 221, 214];
+      const TEXT_DARK = [26, 26, 26];
+      const CREAM_MUTED = [107, 101, 96];
 
-      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const darkPage = () => { pdf.setFillColor(...DARK); pdf.rect(0, 0, W, H, "F"); };
+      const lightPage = () => { pdf.setFillColor(...LIGHT); pdf.rect(0, 0, W, H, "F"); };
+      const footer = (chNum, chName, isDark) => {
+        pdf.setTextColor(...(isDark ? MUTED : CREAM_MUTED));
+        pdf.setFontSize(7);
+        pdf.text(`Chapter ${String(chNum).padStart(2, "0")} · ${chName}`, M, H - 8);
+        pdf.text("careerprint.ai", W - M, H - 8, { align: "right" });
+      };
+      const chapterTitle = (num, title, isDark) => {
+        pdf.setTextColor(...GOLD);
+        pdf.setFontSize(10);
+        pdf.text(`CHAPTER ${String(num).padStart(2, "0")}`, M, M + 10);
+        pdf.setTextColor(...(isDark ? TEXT_LIGHT : TEXT_DARK));
+        pdf.setFontSize(28);
+        pdf.text(title, M, M + 24);
+      };
+      const sectionHead = (text, y, isDark) => {
+        pdf.setTextColor(...(isDark ? MUTED : CREAM_MUTED));
+        pdf.setFontSize(8);
+        pdf.text(text, M, y);
+        return y + 6;
+      };
+      const drawBar = (x, y, w, h, pct, color) => {
+        pdf.setFillColor(40, 40, 55);
+        pdf.roundedRect(x, y, w, h, 1, 1, "F");
+        pdf.setFillColor(...color);
+        pdf.roundedRect(x, y, w * Math.min(pct, 1), h, 1, 1, "F");
+      };
 
-      // ── Cover page ──
-      pdf.setFillColor(5, 5, 8);
-      pdf.rect(0, 0, pageW, pageH, "F");
-      pdf.setTextColor(212, 168, 67);
+      // ═══════════ COVER PAGE ═══════════
+      darkPage();
+      // Decorative line
+      pdf.setDrawColor(...GOLD);
+      pdf.setLineWidth(0.3);
+      pdf.line(W / 2 - 30, H / 2 - 35, W / 2 + 30, H / 2 - 35);
+      pdf.setTextColor(...GOLD);
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(36);
-      pdf.text("CAREERPRINT", pageW / 2, pageH / 2 - 20, { align: "center" });
-      pdf.setFontSize(12);
+      pdf.text("CAREERPRINT", W / 2, H / 2 - 18, { align: "center" });
+      pdf.setFontSize(11);
       pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(107, 101, 128);
-      pdf.text("Your career — as unique as your fingerprint", pageW / 2, pageH / 2, { align: "center" });
+      pdf.setTextColor(...MUTED);
+      pdf.text("Your career \u2014 as unique as your fingerprint", W / 2, H / 2 + 2, { align: "center" });
       pdf.setFontSize(10);
-      pdf.setTextColor(226, 221, 214);
-      const stats = `${c.total.toLocaleString("en-US")} connections · ${c.networkAge} year${c.networkAge !== 1 ? "s" : ""} · ${filesFound.length} file${filesFound.length !== 1 ? "s" : ""} analysed`;
-      pdf.text(stats, pageW / 2, pageH / 2 + 16, { align: "center" });
+      pdf.setTextColor(...TEXT_LIGHT);
+      pdf.text(`${c.total.toLocaleString("en-US")} connections  \u00b7  ${c.networkAge} year${c.networkAge !== 1 ? "s" : ""}  \u00b7  ${filesFound.length} file${filesFound.length !== 1 ? "s" : ""} analysed`, W / 2, H / 2 + 18, { align: "center" });
+      pdf.setDrawColor(...GOLD);
+      pdf.line(W / 2 - 30, H / 2 + 26, W / 2 + 30, H / 2 + 26);
       pdf.setFontSize(8);
-      pdf.setTextColor(107, 101, 128);
-      pdf.text(`Generated ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, pageW / 2, pageH - 20, { align: "center" });
+      pdf.setTextColor(...MUTED);
+      pdf.text(`Generated ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, W / 2, H - 20, { align: "center" });
+      pdf.text("Runs entirely in your browser \u2014 nothing stored or transmitted", W / 2, H - 14, { align: "center" });
 
-      // ── Capture each chapter ──
-      for (let i = 0; i < chapterRefs.length; i++) {
-        const el = chapterRefs[i]?.current;
-        if (!el) continue;
+      // ═══════════ CH 1 — NETWORK AT A GLANCE (DARK) ═══════════
+      pdf.addPage(); darkPage();
+      chapterTitle(1, "Your Network at a Glance", true);
+      footer(1, "Network at a Glance", true);
 
-        const canvas = await html2canvas(el, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: i % 2 === 0 ? "#050508" : "#f5f0e8",
-          windowWidth: 1200,
-          onclone: (doc) => {
-            // Ensure all scroll-reveal elements are visible in the clone
-            doc.querySelectorAll(".scroll-reveal").forEach(e => {
-              e.style.opacity = "1";
-              e.style.transform = "none";
-              e.style.animation = "none";
-            });
-            // Remove the fixed navbar from the clone
-            const nav = doc.querySelector("[data-navbar]");
-            if (nav) nav.style.display = "none";
-          },
+      // Stat cards
+      const statCards = [
+        ["Connections", c.total.toLocaleString("en-US")],
+        ["Network Age", `${c.networkAge} yr${c.networkAge !== 1 ? "s" : ""}`],
+        ["Top Industry", Object.entries(c.industries).sort((a, b) => b[1] - a[1])[0]?.[0] || "—"],
+        ["Concentration", `${c.concentration}%`],
+        ["Executive %", `${c.execPct}%`],
+        ["Files Found", String(filesFound.length)],
+      ];
+      const cardW = (cW - 10) / 3;
+      statCards.forEach(([label, val], i) => {
+        const col = i % 3, row = Math.floor(i / 3);
+        const cx = M + col * (cardW + 5), cy = M + 40 + row * 28;
+        pdf.setFillColor(13, 13, 20);
+        pdf.roundedRect(cx, cy, cardW, 24, 2, 2, "F");
+        pdf.setFontSize(18);
+        pdf.setTextColor(...GOLD);
+        pdf.text(val, cx + 6, cy + 11);
+        pdf.setFontSize(7);
+        pdf.setTextColor(...MUTED);
+        pdf.text(label.toUpperCase(), cx + 6, cy + 19);
+      });
+
+      // Network score
+      const score = c.bench;
+      const grade = score >= 82 ? "A" : score >= 68 ? "B" : score >= 52 ? "C" : "D";
+      const gradeLabel = { A: "Elite Network", B: "Strong Network", C: "Developing", D: "Needs Work" }[grade];
+      pdf.setFontSize(9);
+      pdf.setTextColor(...MUTED);
+      pdf.text("NETWORK SCORE", W - M - 50, M + 42);
+      pdf.setFontSize(42);
+      pdf.setTextColor(...GOLD);
+      pdf.text(grade, W - M - 35, M + 70);
+      pdf.setFontSize(9);
+      pdf.text(`${score}/100`, W - M - 48, M + 80);
+      pdf.setFontSize(8);
+      pdf.setTextColor(...TEAL);
+      pdf.text(gradeLabel.toUpperCase(), W - M - 55, M + 88);
+
+      // Key insights
+      let iy = M + 102;
+      iy = sectionHead("KEY INSIGHTS", iy, true);
+      pdf.setFontSize(9);
+      pdf.setTextColor(...TEXT_LIGHT);
+      const insights = [];
+      if (c.concentration > 50) insights.push(`High industry concentration: ${c.concentration}% in ${Object.entries(c.industries).sort((a, b) => b[1] - a[1])[0]?.[0]}`);
+      if (c.execPct > 15) insights.push(`Strong executive network: ${c.execPct}% are VP+ level`);
+      else if (c.execPct < 5) insights.push(`Low executive exposure: only ${c.execPct}% are VP+ level`);
+      if (c.recent12 > 100) insights.push(`Active networker: ${c.recent12} connections added in last 12 months`);
+      else if (c.recent12 < 10) insights.push(`Dormant growth: only ${c.recent12} connections in the last 12 months`);
+      if (silentNetwork?.silentPct > 80) insights.push(`${silentNetwork.silentPct}% of your network is silent \u2014 never messaged`);
+      insights.slice(0, 6).forEach((ins, idx) => {
+        pdf.setFillColor(13, 13, 20);
+        pdf.roundedRect(M, iy + idx * 12, cW, 10, 1, 1, "F");
+        pdf.setTextColor(...TEXT_LIGHT);
+        pdf.text(`\u2022  ${ins}`, M + 4, iy + idx * 12 + 7);
+      });
+
+      // ═══════════ CH 2 — WHO YOU KNOW (LIGHT) ═══════════
+      pdf.addPage(); lightPage();
+      chapterTitle(2, "Who You Know", false);
+      footer(2, "Who You Know", false);
+
+      // Industry breakdown
+      let y2 = M + 38;
+      y2 = sectionHead("INDUSTRY BREAKDOWN", y2, false);
+      const topIndustries = Object.entries(c.industries).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      const maxInd = topIndustries[0]?.[1] || 1;
+      topIndustries.forEach(([name, count], i) => {
+        const by = y2 + i * 10;
+        pdf.setFontSize(8);
+        pdf.setTextColor(...TEXT_DARK);
+        const truncName = name.length > 28 ? name.slice(0, 27) + "\u2026" : name;
+        pdf.text(truncName, M, by + 5);
+        drawBar(M + 70, by + 1, 100, 5, count / maxInd, GOLD);
+        pdf.setTextColor(...CREAM_MUTED);
+        pdf.setFontSize(7);
+        pdf.text(`${count}`, M + 173, by + 5);
+      });
+
+      // Seniority breakdown
+      const senX = M + cW / 2 + 10;
+      let sy = M + 38;
+      sy = sectionHead("SENIORITY PROFILE", sy, false);
+      pdf.setTextColor(...TEXT_DARK);
+      pdf.setFontSize(8);
+      sortedSen.forEach(([label, count], i) => {
+        const by = sy + i * 12;
+        const pct = Math.round((count / c.total) * 100);
+        pdf.setTextColor(...TEXT_DARK);
+        pdf.text(label, senX, by + 5);
+        drawBar(senX, by + 7, 100, 4, count / maxSen, TEAL);
+        pdf.setTextColor(...CREAM_MUTED);
+        pdf.setFontSize(7);
+        pdf.text(`${count} (${pct}%)`, senX + 103, by + 5);
+        pdf.setFontSize(8);
+      });
+
+      // Top companies
+      const topCo = Object.entries(c.companies || {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
+      if (topCo.length > 0) {
+        pdf.addPage(); lightPage();
+        footer(2, "Who You Know", false);
+        let cy2 = M + 6;
+        cy2 = sectionHead("TOP COMPANIES", cy2, false);
+        const coColW = cW / 3;
+        topCo.forEach(([name, count], i) => {
+          const col = i % 3, row = Math.floor(i / 3);
+          const cx = M + col * coColW, ccy = cy2 + row * 10;
+          pdf.setFontSize(8);
+          pdf.setTextColor(...TEXT_DARK);
+          pdf.text(`${name}`, cx + 2, ccy + 6);
+          pdf.setTextColor(...CREAM_MUTED);
+          pdf.text(`(${count})`, cx + 2 + pdf.getTextWidth(name) + 2, ccy + 6);
         });
+      }
 
-        const imgData = canvas.toDataURL("image/jpeg", 0.92);
-        const imgW = canvas.width;
-        const imgH = canvas.height;
+      // ═══════════ CH 3 — YOUR REPUTATION (DARK) ═══════════
+      pdf.addPage(); darkPage();
+      chapterTitle(3, "Your Reputation", true);
+      footer(3, "Your Reputation", true);
 
-        // Scale image to fit page width, then slice into pages
-        const scaledH = (contentW / imgW) * imgH;
-        const pagesNeeded = Math.ceil(scaledH / contentH);
+      // Skills — `skills` is { topSkills: [[name, count], ...], allSkills, ... }
+      const topSkills = skills?.topSkills?.slice(0, 15) || [];
+      if (topSkills.length > 0) {
+        let sky = M + 40;
+        sky = sectionHead("TOP SKILLS", sky, true);
+        const skillEntries = topSkills.map(([name]) => name).filter(Boolean);
+        const skillColW = cW / 3;
+        skillEntries.forEach((name, i) => {
+          const col = i % 3, row = Math.floor(i / 3);
+          const sx = M + col * skillColW, ssy = sky + row * 10;
+          pdf.setFillColor(13, 13, 20);
+          pdf.roundedRect(sx, ssy, skillColW - 4, 8, 1, 1, "F");
+          pdf.setFontSize(8);
+          pdf.setTextColor(...TEXT_LIGHT);
+          pdf.text(name.slice(0, 30), sx + 3, ssy + 5.5);
+        });
+      }
 
-        for (let p = 0; p < pagesNeeded; p++) {
-          pdf.addPage([pageW, pageH], "landscape");
-
-          // Background
-          const bgColor = i % 2 === 0 ? [5, 5, 8] : [245, 240, 232];
-          pdf.setFillColor(...bgColor);
-          pdf.rect(0, 0, pageW, pageH, "F");
-
-          // Clip to content area and draw the slice
-          const srcY = (p / pagesNeeded) * imgH;
-          const srcH = imgH / pagesNeeded;
-
-          // Create a temporary canvas for this slice
-          const sliceCanvas = document.createElement("canvas");
-          sliceCanvas.width = imgW;
-          sliceCanvas.height = Math.ceil(srcH);
-          const ctx = sliceCanvas.getContext("2d");
-          ctx.drawImage(canvas, 0, srcY, imgW, srcH, 0, 0, imgW, srcH);
-
-          const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
-          pdf.addImage(sliceData, "JPEG", margin, margin, contentW, contentH);
-
-          // Page footer
-          const textColor = i % 2 === 0 ? [107, 101, 128] : [107, 101, 96];
-          pdf.setTextColor(...textColor);
-          pdf.setFontSize(7);
-          pdf.text(`Chapter ${String(i + 1).padStart(2, "0")} · ${chapterNames[i]}`, margin, pageH - 5);
-          pdf.text("careerprint.ai", pageW - margin, pageH - 5, { align: "right" });
+      // Endorsement reciprocity
+      if (endorsementReciprocity) {
+        let ey = M + 110;
+        ey = sectionHead("ENDORSEMENT RECIPROCITY", ey, true);
+        pdf.setFontSize(9);
+        if (endorsementReciprocity.mutualChampions?.length) {
+          pdf.setTextColor(...GOLD);
+          pdf.text("Mutual Champions:", M, ey + 6);
+          pdf.setTextColor(...TEXT_LIGHT);
+          pdf.text(endorsementReciprocity.mutualChampions.slice(0, 5).map(p => p.name).join(", "), M + 40, ey + 6);
+        }
+        if (endorsementReciprocity.unreturned?.length) {
+          pdf.setTextColor(...TEAL);
+          pdf.text("Unreturned:", M, ey + 16);
+          pdf.setTextColor(...TEXT_LIGHT);
+          pdf.text(endorsementReciprocity.unreturned.slice(0, 5).map(p => p.name).join(", "), M + 40, ey + 16);
         }
       }
+
+      // Career timeline
+      if (positions && positions.length > 0) {
+        pdf.addPage(); darkPage();
+        footer(3, "Your Reputation", true);
+        let ty = M + 6;
+        ty = sectionHead("CAREER TIMELINE", ty, true);
+        positions.slice(0, 10).forEach((pos, i) => {
+          const py = ty + i * 14;
+          const title = pos["Title"] || pos["title"] || "";
+          const company = pos["Company Name"] || pos["company"] || "";
+          const started = pos["Started On"] || pos["start"] || "";
+          const ended = pos["Finished On"] || pos["end"] || "Present";
+          pdf.setFontSize(9);
+          pdf.setTextColor(...GOLD);
+          pdf.text(title.slice(0, 45), M, py + 5);
+          pdf.setTextColor(...TEXT_LIGHT);
+          pdf.text(company.slice(0, 40), M, py + 11);
+          pdf.setTextColor(...MUTED);
+          pdf.setFontSize(7);
+          pdf.text(`${started} \u2013 ${ended}`, W - M - 40, py + 5);
+        });
+      }
+
+      // ═══════════ CH 4 — WHAT LINKEDIN KNOWS (LIGHT) ═══════════
+      if (adTargeting || inferences) {
+        pdf.addPage(); lightPage();
+        chapterTitle(4, "What LinkedIn Knows About You", false);
+        footer(4, "What LinkedIn Knows", false);
+
+        if (adTargeting) {
+          let ay = M + 40;
+          ay = sectionHead("AD TARGETING CATEGORIES", ay, false);
+          const tags = Object.entries(adTargeting).slice(0, 8);
+          tags.forEach(([category, items], ci) => {
+            if (!Array.isArray(items) || items.length === 0) return;
+            pdf.setFontSize(8);
+            pdf.setTextColor(...CREAM_MUTED);
+            pdf.text(category.toUpperCase(), M, ay + 5);
+            pdf.setFontSize(7);
+            pdf.setTextColor(...TEXT_DARK);
+            const itemStr = items.slice(0, 8).join(", ");
+            pdf.text(itemStr.slice(0, 100), M + 55, ay + 5);
+            ay += 9;
+          });
+        }
+
+        if (inferences && inferences.length > 0) {
+          let iny = M + 120;
+          iny = sectionHead("LINKEDIN\u2019S INFERENCES ABOUT YOU", iny, false);
+          pdf.setFontSize(8);
+          pdf.setTextColor(...TEXT_DARK);
+          const infTexts = inferences.slice(0, 12).map(inf => {
+            const val = inf["Inference"] || inf["inference"] || Object.values(inf)[0] || "";
+            return val;
+          }).filter(Boolean);
+          infTexts.forEach((t, i) => {
+            const col = i % 3, row = Math.floor(i / 3);
+            pdf.text(`\u2022 ${t.slice(0, 35)}`, M + col * (cW / 3), iny + 6 + row * 8);
+          });
+        }
+      }
+
+      // ═══════════ CH 5 — CAREER INTENT (DARK) ═══════════
+      if (hasCareerIntel) {
+        pdf.addPage(); darkPage();
+        chapterTitle(5, "Your Career Intent", true);
+        footer(5, "Career Intent", true);
+
+        let ci5y = M + 40;
+        if (careerIntent) {
+          const intentStats = [
+            ["Saved Jobs", careerIntent.savedCount || 0],
+            ["Applications", careerIntent.appliedCount || 0],
+          ];
+          intentStats.forEach(([label, val], i) => {
+            const ix = M + i * 60;
+            pdf.setFillColor(13, 13, 20);
+            pdf.roundedRect(ix, ci5y, 55, 22, 2, 2, "F");
+            pdf.setFontSize(18);
+            pdf.setTextColor(...GOLD);
+            pdf.text(String(val), ix + 6, ci5y + 12);
+            pdf.setFontSize(7);
+            pdf.setTextColor(...MUTED);
+            pdf.text(label.toUpperCase(), ix + 6, ci5y + 19);
+          });
+
+          // Top job categories
+          if (careerIntent.topCategories?.length) {
+            ci5y += 32;
+            ci5y = sectionHead("TOP JOB CATEGORIES", ci5y, true);
+            careerIntent.topCategories.slice(0, 8).forEach((cat, i) => {
+              const name = typeof cat === "string" ? cat : cat[0] || cat.name || "";
+              pdf.setFontSize(8);
+              pdf.setTextColor(...TEXT_LIGHT);
+              pdf.text(`\u2022  ${name}`, M, ci5y + 6 + i * 8);
+            });
+          }
+        }
+
+        if (companyFollows && companyFollows.length > 0) {
+          let cfy = M + 130;
+          cfy = sectionHead("COMPANIES FOLLOWED", cfy, true);
+          pdf.setFontSize(8);
+          pdf.setTextColor(...TEXT_LIGHT);
+          const followNames = companyFollows.slice(0, 12).map(f => f["Organization"] || f["Company"] || Object.values(f)[0] || "").filter(Boolean);
+          followNames.forEach((name, i) => {
+            const col = i % 3, row = Math.floor(i / 3);
+            pdf.text(name.slice(0, 30), M + col * (cW / 3), cfy + 6 + row * 8);
+          });
+        }
+      }
+
+      // ═══════════ BACK PAGE ═══════════
+      pdf.addPage(); darkPage();
+      pdf.setDrawColor(...GOLD);
+      pdf.setLineWidth(0.3);
+      pdf.line(W / 2 - 20, H / 2 - 20, W / 2 + 20, H / 2 - 20);
+      pdf.setTextColor(...GOLD);
+      pdf.setFontSize(14);
+      pdf.text("CAREERPRINT.AI", W / 2, H / 2 - 6, { align: "center" });
+      pdf.setFontSize(9);
+      pdf.setTextColor(...MUTED);
+      pdf.text("Your career \u2014 as unique as your fingerprint", W / 2, H / 2 + 6, { align: "center" });
+      pdf.setFontSize(8);
+      pdf.text("Runs entirely in your browser \u2014 nothing stored or transmitted", W / 2, H / 2 + 18, { align: "center" });
+      pdf.line(W / 2 - 20, H / 2 + 24, W / 2 + 20, H / 2 + 24);
 
       const fileName = `CareerPrint_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
       pdf.save(fileName);
     } catch (err) {
       console.error("PDF export failed:", err);
+      alert("PDF export failed \u2014 check browser console for details.");
     } finally {
       setExporting(false);
     }
