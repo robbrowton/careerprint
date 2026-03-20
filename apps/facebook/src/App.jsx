@@ -1,159 +1,25 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import JSZip from "jszip";
+import { createGlobalCSS, useScrollReveal, CountUp, SectionLabel, GRADE } from '@careerprint/shared';
 
 // ─── Global styles ────────────────────────────────────────────────────────────
-const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Space+Mono:wght@400;700&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #050508;
-    --surface: #0d0d14;
-    --border: #1a1a28;
-    --border-bright: #2a2a40;
-    --text: #e2ddd6;
-    --muted: #6b6580;
-    --faint: #2a2535;
-    --blue: #4a90d9;
-    --blue-dim: #2a5a8a;
-    --blue-glow: rgba(74,144,217,0.15);
-    --teal: #3dd6c8;
-    --teal-dim: #1a7a72;
-    --rose: #e86060;
-    --green: #5dd68a;
-    --amber: #e8a840;
-    --cream: #f5f0e8;
-    --cream-surface: #ede6d8;
-    --cream-border: #d5cdb8;
-    --cream-text: #1a1a1a;
-    --cream-muted: #6b6560;
-  }
-  body { background: var(--bg); color: var(--text); font-family: 'Space Mono', monospace; overflow-x: hidden; }
-  ::selection { background: var(--blue-glow); }
-  .serif { font-family: 'Playfair Display', Georgia, serif; }
-
-  body::before {
-    content: '';
-    position: fixed; inset: 0; z-index: 9999; pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    opacity: 0.4;
-  }
-
-  @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes pulse { 0%,100% { opacity:0.4; } 50% { opacity:1; } }
-  @keyframes glowPulse { 0%,100% { box-shadow: 0 0 20px var(--blue-glow); } 50% { box-shadow: 0 0 40px rgba(74,144,217,0.3); } }
-  @keyframes drawIn { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
-  @keyframes floatIn { from { opacity: 0; transform: translateY(20px) scale(0.8); } to { opacity: 1; transform: translateY(0) scale(1); } }
-  @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-  @keyframes barGrowH { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-  @keyframes countUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+const GLOBAL_CSS = createGlobalCSS({
+  accent: '#4a90d9',
+  accentDim: '#2a5a8a',
+  accentGlow: 'rgba(74,144,217,0.15)',
+  accentHover: '#5da0e9',
+  accentShadow: 'rgba(74,144,217,0.3)',
+  btnTextColor: '#fff',
+  hexShadow: 'rgba(74,144,217,0.4)',
+  glowPulse50: 'rgba(74,144,217,0.3)',
+  extraVars: `--blue: #4a90d9; --blue-dim: #2a5a8a; --blue-glow: rgba(74,144,217,0.15);`,
+  extraKeyframes: `
   @keyframes ambientGlow { 0%,100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.05); } }
   @keyframes pulseNode { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
-  @keyframes shimmerSkill { 0% { filter: brightness(1); } 50% { filter: brightness(1.6) drop-shadow(0 0 12px rgba(74,144,217,0.6)); } 100% { filter: brightness(1); } }
-
-  .animate-fade-up   { animation: fadeUp 0.7s ease forwards; }
-  .animate-fade-up-1 { animation: fadeUp 0.7s 0.1s ease forwards; opacity:0; }
-  .animate-fade-up-2 { animation: fadeUp 0.7s 0.2s ease forwards; opacity:0; }
-  .animate-fade-up-3 { animation: fadeUp 0.7s 0.3s ease forwards; opacity:0; }
-  .animate-fade-up-4 { animation: fadeUp 0.7s 0.4s ease forwards; opacity:0; }
-  .animate-fade-up-5 { animation: fadeUp 0.7s 0.5s ease forwards; opacity:0; }
-  .animate-fade-up-6 { animation: fadeUp 0.7s 0.6s ease forwards; opacity:0; }
-  .animate-fade-up-7 { animation: fadeUp 0.7s 0.7s ease forwards; opacity:0; }
-
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 1px; position: relative; overflow: hidden; }
-  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--blue-dim),transparent); }
-
-  .drop-zone { border: 1px dashed var(--border-bright); cursor: pointer; transition: all 0.3s; }
-  .drop-zone:hover, .drop-zone.over { border-color: var(--blue); background: var(--blue-glow); }
-  .drop-zone:hover .upload-icon { transform: translateY(-4px); color: var(--blue); }
-  .upload-icon { transition: all 0.3s; color: var(--muted); }
-
-  .btn-primary { background: var(--blue); color: #fff; border: none; padding: 14px 40px; font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.15em; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-block; }
-  .btn-primary:hover { background: #5da0e9; transform: translateY(-1px); box-shadow: 0 8px 32px rgba(74,144,217,0.3); }
-
-  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border-bright); padding: 10px 24px; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.15em; cursor: pointer; transition: all 0.2s; }
-  .btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
-
-  .chapter { position: relative; padding: 100px 0; }
-  .chapter-dark { background: var(--bg); color: var(--text); }
-  .chapter-light { background: var(--cream); color: var(--cream-text); --text: var(--cream-text); --muted: var(--cream-muted); --faint: var(--cream-border); }
-  .chapter-light .card { background: var(--cream-surface); border-color: var(--cream-border); }
-  .chapter-light .card::before { background: linear-gradient(90deg,transparent,var(--blue-dim),transparent); }
-
-  .chapter-opener { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 80px 24px; }
-
-  .chapter-divider { width: 60px; height: 1px; background: var(--blue); margin: 0 auto; }
-
-  .scroll-reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease, transform 0.8s ease; }
-  .scroll-reveal.visible { opacity: 1; transform: translateY(0); }
-  .scroll-reveal-delay-1 { transition-delay: 0.1s; }
-  .scroll-reveal-delay-2 { transition-delay: 0.2s; }
-  .scroll-reveal-delay-3 { transition-delay: 0.3s; }
-  .scroll-reveal-delay-4 { transition-delay: 0.4s; }
-
-  .hex-score { filter: drop-shadow(0 0 24px rgba(74,144,217,0.4)); }
-
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border-bright); }
-`;
-
-// ─── Scroll reveal hook ──────────────────────────────────────────────────────
-function useScrollReveal() {
-  const ref = useRef();
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visible"); observer.unobserve(e.target); } }),
-      { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
-    );
-    el.querySelectorAll(".scroll-reveal").forEach(child => observer.observe(child));
-    return () => observer.disconnect();
-  }, []);
-  return ref;
-}
-
-function CountUp({ value, suffix = "", duration = 1500 }) {
-  const [display, setDisplay] = useState(0);
-  const ref = useRef();
-  const started = useRef(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && !started.current) {
-        started.current = true;
-        const num = typeof value === "number" ? value : parseInt(String(value).replace(/[^0-9]/g, "")) || 0;
-        const startTime = performance.now();
-        const step = (now) => {
-          const progress = Math.min((now - startTime) / duration, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          setDisplay(Math.round(num * eased));
-          if (progress < 1) requestAnimationFrame(step);
-        };
-        requestAnimationFrame(step);
-        observer.disconnect();
-      }
-    }, { threshold: 0.3 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [value, duration]);
-  return <span ref={ref}>{display.toLocaleString()}{suffix}</span>;
-}
-
-function SectionLabel({ children, color = "var(--muted)", icon }) {
-  return (
-    <div style={{ fontSize: 10, letterSpacing: "0.2em", color, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-      {icon && <span style={{ fontSize: 12 }}>{icon}</span>}
-      {children}
-    </div>
-  );
-}
+  @keyframes shimmerSkill { 0% { filter: brightness(1); } 50% { filter: brightness(1.6) drop-shadow(0 0 12px rgba(74,144,217,0.6)); } 100% { filter: brightness(1); } }`,
+});
 
 // ─── Score helpers ────────────────────────────────────────────────────────────
-const GRADE = s => s >= 82 ? "A" : s >= 68 ? "B" : s >= 52 ? "C" : "D";
 const GRADE_LABEL = s => ({ A: "Deep Digital Shadow", B: "Significant Footprint", C: "Moderate Presence", D: "Light Footprint" })[GRADE(s)];
 const GRADE_COLOR = s => ({ A: "var(--rose)", B: "var(--amber)", C: "var(--blue)", D: "var(--green)" })[GRADE(s)];
 

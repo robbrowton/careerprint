@@ -1,8 +1,10 @@
 {
-  "name": "x-intelligence",
+  "name": "linkedin",
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@careerprint/shared": "workspace:*",
+    "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
