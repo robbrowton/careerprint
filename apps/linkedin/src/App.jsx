@@ -1,8 +1,6 @@
 import React, { Component, useState, useCallback, useRef, useEffect } from "react";
 import JSZip from "jszip";
 import { createGlobalCSS, useScrollReveal, CountUp, GRADE } from '@careerprint/shared';
-// Lazy-loaded to avoid blocking render if modules fail to load
-const loadJsPDF = () => import("jspdf").then(m => m.jsPDF);
 
 // ─── Global styles ────────────────────────────────────────────────────────────
 const GLOBAL_CSS = createGlobalCSS({
@@ -920,7 +918,6 @@ async function processZip(file) {
   const cff = find("company.?follows\\.csv");          if(cff) result.companyFollows = parseCSV(await cff.async("string"));
   const evf = find("events\\.csv");                    if(evf) result.events = parseCSV(await evf.async("string"));
   const jsp = find("job.?seeker.?preferences\\.csv");  if(jsp) result.jobSeekerPrefs = parseCSV(await jsp.async("string"));
-  const jsaa = find("job.?applicant.?saved.?answers\\.csv"); if(jsaa) result.savedAnswers = parseCSV(await jsaa.async("string"));
   const jsqr = find("job.?applicant.?saved.?screening\\.csv"); if(jsqr) result.screeningResponses = parseCSV(await jsqr.async("string"));
   const ojp = find("online.?job.?postings\\.csv");     if(ojp) result.jobPostings = parseCSV(await ojp.async("string"));
   const vff = find("verifications\\.csv");             if(vff) result.verifications = parseCSV(await vff.async("string"));
@@ -1050,7 +1047,6 @@ export default function App() {
         jobSeekerPrefs: analyseJobSeekerPrefs(files.jobSeekerPrefs),
         articles: analyseArticles(files.articles),
         verifications: analyseVerifications(files.verifications),
-        savedAnswers: files.savedAnswers || null,
         jobPostings: files.jobPostings || null,
         filesFound:  Object.keys(files),
       });
@@ -1472,7 +1468,7 @@ function SkillsConstellation({ skills: sk }) {
   return (
     <div style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", padding: "40px 0" }}>
       <div style={{ position: "absolute", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle, rgba(212,168,67,0.08) 0%, transparent 70%)", animation: "ambientGlow 6s ease infinite", top: "50%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none" }} />
-      <svg viewBox="0 0 1200 900" style={{ width: "100%", maxHeight: "90vh", height: "auto", position: "relative", zIndex: 1 }}>
+      <svg data-share-constellation viewBox="0 0 1200 900" style={{ width: "100%", maxHeight: "90vh", height: "auto", position: "relative", zIndex: 1 }}>
         <defs>
           <filter id="skillGlow"><feGaussianBlur stdDeviation="6" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
           <filter id="skillGlowStrong"><feGaussianBlur stdDeviation="10" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
@@ -2301,7 +2297,7 @@ function NetworkDNA({ industries, total }) {
     remaining = false;
     for (const q of queues) { if (q.length > 0) { bars.push(q.shift()); remaining = true; } }
   }
-  const barW = 3, gap = 1, height = 120, pad = 80;
+  const barW = 3, gap = 1, height = 120, pad = 100;
   const svgW = bars.length * (barW + gap);
   const viewH = height + pad * 2;
   const containerRef = useRef(null);
@@ -2359,7 +2355,7 @@ function NetworkDNA({ industries, total }) {
 
   return (
     <div className="scroll-reveal" ref={containerRef} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}
-      style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", overflow: "hidden", marginBottom: 80, marginTop: 40, position: "relative", minHeight: "50vh", cursor: "crosshair" }}>
+      style={{ width: "100vw", marginLeft: "calc(-50vw + 50%)", overflowX: "hidden", overflowY: "visible", marginBottom: 80, marginTop: 40, position: "relative", minHeight: "50vh", cursor: "crosshair" }}>
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, var(--bg) 0%, transparent 5%, transparent 95%, var(--bg) 100%)", zIndex: 2, pointerEvents: "none" }} />
       {/* CSS-only spotlight — no re-renders */}
       <div ref={spotlightRef} style={{
@@ -2433,7 +2429,7 @@ function SectionLabel({ children, color, icon }) {
 // ─── Results ──────────────────────────────────────────────────────────────────
 
 function Results({ data, onReset }) {
-  const { connections: c, messages, invitations, skills, profile, positions, education, certifications, recsReceived, recsGiven, learning, endorsementReciprocity, silentNetwork, careerIntent, contentCreator, registration, companyFollows, events, jobSeekerPrefs, articles, verifications, savedAnswers, filesFound } = data;
+  const { connections: c, messages, invitations, skills, profile, positions, education, certifications, recsReceived, recsGiven, learning, endorsementReciprocity, silentNetwork, careerIntent, contentCreator, registration, companyFollows, events, jobSeekerPrefs, articles, verifications, filesFound } = data;
   const hasCareerIntel = (careerIntent && (careerIntent.savedCount > 0 || careerIntent.appliedCount > 0)) || jobSeekerPrefs || companyFollows;
 
   // Scroll progress bar
@@ -2468,348 +2464,193 @@ function Results({ data, onReset }) {
   const [expanded, setExpanded] = useState({});
   const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // ─── PDF Export ──────────────────────────────────────────────────────────────
-  const [exporting, setExporting] = useState(false);
-  const reportRef = useRef(null);
+  // ─── Share Card Generator ──────────────────────────────────────────────────
+  const generateShareCard = useCallback(async () => {
+    await document.fonts.ready;
+    const W = 1200, H = 627;
+    const canvas = document.createElement("canvas");
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext("2d");
 
-  const exportPDF = async () => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const PDF = await loadJsPDF();
+    // Background
+    ctx.fillStyle = "#050508";
+    ctx.fillRect(0, 0, W, H);
 
-      // A4 landscape
-      const W = 297, H = 210, M = 16;
-      const cW = W - M * 2, cH = H - M * 2;
-      const pdf = new PDF({ orientation: "landscape", unit: "mm", format: "a4" });
-
-      // Colors
-      const DARK = [5, 5, 8];
-      const LIGHT = [245, 240, 232];
-      const GOLD = [212, 168, 67];
-      const TEAL = [61, 214, 200];
-      const MUTED = [107, 101, 128];
-      const TEXT_LIGHT = [226, 221, 214];
-      const TEXT_DARK = [26, 26, 26];
-      const CREAM_MUTED = [107, 101, 96];
-
-      const darkPage = () => { pdf.setFillColor(...DARK); pdf.rect(0, 0, W, H, "F"); };
-      const lightPage = () => { pdf.setFillColor(...LIGHT); pdf.rect(0, 0, W, H, "F"); };
-      const footer = (chNum, chName, isDark) => {
-        pdf.setTextColor(...(isDark ? MUTED : CREAM_MUTED));
-        pdf.setFontSize(7);
-        pdf.text(`Chapter ${String(chNum).padStart(2, "0")} · ${chName}`, M, H - 8);
-        pdf.text("careerprint.ai", W - M, H - 8, { align: "right" });
-      };
-      const chapterTitle = (num, title, isDark) => {
-        pdf.setTextColor(...GOLD);
-        pdf.setFontSize(10);
-        pdf.text(`CHAPTER ${String(num).padStart(2, "0")}`, M, M + 10);
-        pdf.setTextColor(...(isDark ? TEXT_LIGHT : TEXT_DARK));
-        pdf.setFontSize(28);
-        pdf.text(title, M, M + 24);
-      };
-      const sectionHead = (text, y, isDark) => {
-        pdf.setTextColor(...(isDark ? MUTED : CREAM_MUTED));
-        pdf.setFontSize(8);
-        pdf.text(text, M, y);
-        return y + 6;
-      };
-      const drawBar = (x, y, w, h, pct, color) => {
-        pdf.setFillColor(40, 40, 55);
-        pdf.roundedRect(x, y, w, h, 1, 1, "F");
-        pdf.setFillColor(...color);
-        pdf.roundedRect(x, y, w * Math.min(pct, 1), h, 1, 1, "F");
-      };
-
-      // ═══════════ COVER PAGE ═══════════
-      darkPage();
-      // Decorative line
-      pdf.setDrawColor(...GOLD);
-      pdf.setLineWidth(0.3);
-      pdf.line(W / 2 - 30, H / 2 - 35, W / 2 + 30, H / 2 - 35);
-      pdf.setTextColor(...GOLD);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(36);
-      pdf.text("CAREERPRINT", W / 2, H / 2 - 18, { align: "center" });
-      pdf.setFontSize(11);
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(...MUTED);
-      pdf.text("Your career \u2014 as unique as your fingerprint", W / 2, H / 2 + 2, { align: "center" });
-      pdf.setFontSize(10);
-      pdf.setTextColor(...TEXT_LIGHT);
-      pdf.text(`${c.total.toLocaleString("en-US")} connections  \u00b7  ${c.networkAge} year${c.networkAge !== 1 ? "s" : ""}  \u00b7  ${filesFound.length} file${filesFound.length !== 1 ? "s" : ""} analysed`, W / 2, H / 2 + 18, { align: "center" });
-      pdf.setDrawColor(...GOLD);
-      pdf.line(W / 2 - 30, H / 2 + 26, W / 2 + 30, H / 2 + 26);
-      pdf.setFontSize(8);
-      pdf.setTextColor(...MUTED);
-      pdf.text(`Generated ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, W / 2, H - 20, { align: "center" });
-      pdf.text("Runs entirely in your browser \u2014 nothing stored or transmitted", W / 2, H - 14, { align: "center" });
-
-      // ═══════════ CH 1 — NETWORK AT A GLANCE (DARK) ═══════════
-      pdf.addPage(); darkPage();
-      chapterTitle(1, "Your Network at a Glance", true);
-      footer(1, "Network at a Glance", true);
-
-      // Stat cards
-      const statCards = [
-        ["Connections", c.total.toLocaleString("en-US")],
-        ["Network Age", `${c.networkAge} yr${c.networkAge !== 1 ? "s" : ""}`],
-        ["Top Industry", Object.entries(c.industries).sort((a, b) => b[1] - a[1])[0]?.[0] || "—"],
-        ["Concentration", `${c.concentration}%`],
-        ["Executive %", `${c.execPct}%`],
-        ["Files Found", String(filesFound.length)],
-      ];
-      const cardW = (cW - 10) / 3;
-      statCards.forEach(([label, val], i) => {
-        const col = i % 3, row = Math.floor(i / 3);
-        const cx = M + col * (cardW + 5), cy = M + 40 + row * 28;
-        pdf.setFillColor(13, 13, 20);
-        pdf.roundedRect(cx, cy, cardW, 24, 2, 2, "F");
-        pdf.setFontSize(18);
-        pdf.setTextColor(...GOLD);
-        pdf.text(val, cx + 6, cy + 11);
-        pdf.setFontSize(7);
-        pdf.setTextColor(...MUTED);
-        pdf.text(label.toUpperCase(), cx + 6, cy + 19);
+    // Draw skills constellation directly on canvas
+    const hasSkills = skills && skills.totalEndorsements > 0 && skills.topSkills.length > 0;
+    if (hasSkills) {
+      const allSkills = skills.topSkills.slice(0, 24);
+      const maxEnd = allSkills[0][1] || 1;
+      const golden = 2.39996323;
+      // Map from SVG viewBox (1200x900) to canvas (1200x627)
+      const scX = W / 1200, scY = H / 900;
+      const svgCx = 600, svgCy = 450;
+      const nodes = allSkills.map(([name, count], i) => {
+        const r = 160 + Math.sqrt(i) * 80;
+        const angle = i * golden;
+        const size = 16 + (count / maxEnd) * 48;
+        return { name, count, x: (svgCx + r * Math.cos(angle)) * scX, y: (svgCy + r * Math.sin(angle)) * scY, size: size * Math.min(scX, scY) };
       });
 
-      // Network score
-      const score = c.bench;
-      const grade = score >= 82 ? "A" : score >= 68 ? "B" : score >= 52 ? "C" : "D";
-      const gradeLabel = { A: "Elite Network", B: "Strong Network", C: "Developing", D: "Needs Work" }[grade];
-      pdf.setFontSize(9);
-      pdf.setTextColor(...MUTED);
-      pdf.text("NETWORK SCORE", W - M - 50, M + 42);
-      pdf.setFontSize(42);
-      pdf.setTextColor(...GOLD);
-      pdf.text(grade, W - M - 35, M + 70);
-      pdf.setFontSize(9);
-      pdf.text(`${score}/100`, W - M - 48, M + 80);
-      pdf.setFontSize(8);
-      pdf.setTextColor(...TEAL);
-      pdf.text(gradeLabel.toUpperCase(), W - M - 55, M + 88);
+      // Ambient glow
+      const glow = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 350);
+      glow.addColorStop(0, "rgba(212,168,67,0.08)");
+      glow.addColorStop(1, "transparent");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
 
-      // Key insights
-      let iy = M + 102;
-      iy = sectionHead("KEY INSIGHTS", iy, true);
-      pdf.setFontSize(9);
-      pdf.setTextColor(...TEXT_LIGHT);
-      const insights = [];
-      if (c.concentration > 50) insights.push(`High industry concentration: ${c.concentration}% in ${Object.entries(c.industries).sort((a, b) => b[1] - a[1])[0]?.[0]}`);
-      if (c.execPct > 15) insights.push(`Strong executive network: ${c.execPct}% are VP+ level`);
-      else if (c.execPct < 5) insights.push(`Low executive exposure: only ${c.execPct}% are VP+ level`);
-      if (c.recent12 > 100) insights.push(`Active networker: ${c.recent12} connections added in last 12 months`);
-      else if (c.recent12 < 10) insights.push(`Dormant growth: only ${c.recent12} connections in the last 12 months`);
-      if (silentNetwork?.silentPct > 80) insights.push(`${silentNetwork.silentPct}% of your network is silent \u2014 never messaged`);
-      insights.slice(0, 6).forEach((ins, idx) => {
-        pdf.setFillColor(13, 13, 20);
-        pdf.roundedRect(M, iy + idx * 12, cW, 10, 1, 1, "F");
-        pdf.setTextColor(...TEXT_LIGHT);
-        pdf.text(`\u2022  ${ins}`, M + 4, iy + idx * 12 + 7);
+      // Orbit rings
+      [160, 260, 360, 450].forEach((r, i) => {
+        ctx.beginPath();
+        ctx.arc(svgCx * scX, svgCy * scY, r * Math.min(scX, scY), 0, Math.PI * 2);
+        ctx.strokeStyle = "#1a1a2e";
+        ctx.lineWidth = 0.3;
+        ctx.globalAlpha = 0.3 - i * 0.05;
+        ctx.setLineDash([4, 8]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
       });
 
-      // ═══════════ CH 2 — WHO YOU KNOW (LIGHT) ═══════════
-      pdf.addPage(); lightPage();
-      chapterTitle(2, "Who You Know", false);
-      footer(2, "Who You Know", false);
-
-      // Industry breakdown
-      let y2 = M + 38;
-      y2 = sectionHead("INDUSTRY BREAKDOWN", y2, false);
-      const topIndustries = Object.entries(c.industries).sort((a, b) => b[1] - a[1]).slice(0, 10);
-      const maxInd = topIndustries[0]?.[1] || 1;
-      topIndustries.forEach(([name, count], i) => {
-        const by = y2 + i * 10;
-        pdf.setFontSize(8);
-        pdf.setTextColor(...TEXT_DARK);
-        const truncName = name.length > 28 ? name.slice(0, 27) + "\u2026" : name;
-        pdf.text(truncName, M, by + 5);
-        drawBar(M + 70, by + 1, 100, 5, count / maxInd, GOLD);
-        pdf.setTextColor(...CREAM_MUTED);
-        pdf.setFontSize(7);
-        pdf.text(`${count}`, M + 173, by + 5);
+      // Connection lines
+      nodes.forEach((n, i) => {
+        if (i === 0) return;
+        const prev = nodes[i - 1];
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y);
+        ctx.lineTo(n.x, n.y);
+        ctx.strokeStyle = "#8a6a20";
+        ctx.lineWidth = 0.5 + ((prev.size + n.size) / 2 / 64) * 3;
+        ctx.globalAlpha = 0.2;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
       });
 
-      // Seniority breakdown
-      const senX = M + cW / 2 + 10;
-      let sy = M + 38;
-      sy = sectionHead("SENIORITY PROFILE", sy, false);
-      pdf.setTextColor(...TEXT_DARK);
-      pdf.setFontSize(8);
-      sortedSen.forEach(([label, count], i) => {
-        const by = sy + i * 12;
-        const pct = Math.round((count / c.total) * 100);
-        pdf.setTextColor(...TEXT_DARK);
-        pdf.text(label, senX, by + 5);
-        drawBar(senX, by + 7, 100, 4, count / maxSen, TEAL);
-        pdf.setTextColor(...CREAM_MUTED);
-        pdf.setFontSize(7);
-        pdf.text(`${count} (${pct}%)`, senX + 103, by + 5);
-        pdf.setFontSize(8);
+      // Nodes
+      nodes.forEach((n, i) => {
+        // Outer glow for top nodes
+        if (i < 5) {
+          const ng = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.size * 1.6);
+          ng.addColorStop(0, "rgba(212,168,67,0.12)");
+          ng.addColorStop(1, "transparent");
+          ctx.fillStyle = ng;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.size * 1.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Main circle
+        const ng2 = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.size);
+        ng2.addColorStop(0, "rgba(212,168,67,0.4)");
+        ng2.addColorStop(1, "rgba(212,168,67,0.05)");
+        ctx.fillStyle = ng2;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Border
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
+        ctx.strokeStyle = "#d4a843";
+        ctx.lineWidth = i < 3 ? 2 : i < 8 ? 1 : 0.5;
+        ctx.globalAlpha = i < 5 ? 1 : 0.7;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // Inner dot
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.size * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = "#d4a843";
+        ctx.globalAlpha = 0.2 + (n.count / maxEnd) * 0.4;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Label
+        if (n.size > 16) {
+          const label = n.name.length > 18 ? n.name.slice(0, 16) + ".." : n.name;
+          ctx.font = `${n.size > 24 ? 9 : 7}px 'Space Mono', monospace`;
+          ctx.fillStyle = "#e2ddd6";
+          ctx.textAlign = "center";
+          ctx.fillText(label, n.x, n.size > 24 ? n.y + 3 : n.y - n.size - 5);
+        }
       });
-
-      // Top companies
-      const topCo = Object.entries(c.companies || {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
-      if (topCo.length > 0) {
-        pdf.addPage(); lightPage();
-        footer(2, "Who You Know", false);
-        let cy2 = M + 6;
-        cy2 = sectionHead("TOP COMPANIES", cy2, false);
-        const coColW = cW / 3;
-        topCo.forEach(([name, count], i) => {
-          const col = i % 3, row = Math.floor(i / 3);
-          const cx = M + col * coColW, ccy = cy2 + row * 10;
-          pdf.setFontSize(8);
-          pdf.setTextColor(...TEXT_DARK);
-          pdf.text(`${name}`, cx + 2, ccy + 6);
-          pdf.setTextColor(...CREAM_MUTED);
-          pdf.text(`(${count})`, cx + 2 + pdf.getTextWidth(name) + 2, ccy + 6);
-        });
-      }
-
-      // ═══════════ CH 3 — YOUR REPUTATION (DARK) ═══════════
-      pdf.addPage(); darkPage();
-      chapterTitle(3, "Your Reputation", true);
-      footer(3, "Your Reputation", true);
-
-      // Skills — `skills` is { topSkills: [[name, count], ...], allSkills, ... }
-      const topSkills = skills?.topSkills?.slice(0, 15) || [];
-      if (topSkills.length > 0) {
-        let sky = M + 40;
-        sky = sectionHead("TOP SKILLS", sky, true);
-        const skillEntries = topSkills.map(([name]) => name).filter(Boolean);
-        const skillColW = cW / 3;
-        skillEntries.forEach((name, i) => {
-          const col = i % 3, row = Math.floor(i / 3);
-          const sx = M + col * skillColW, ssy = sky + row * 10;
-          pdf.setFillColor(13, 13, 20);
-          pdf.roundedRect(sx, ssy, skillColW - 4, 8, 1, 1, "F");
-          pdf.setFontSize(8);
-          pdf.setTextColor(...TEXT_LIGHT);
-          pdf.text(name.slice(0, 30), sx + 3, ssy + 5.5);
-        });
-      }
-
-      // Endorsement reciprocity
-      if (endorsementReciprocity) {
-        let ey = M + 110;
-        ey = sectionHead("ENDORSEMENT RECIPROCITY", ey, true);
-        pdf.setFontSize(9);
-        if (endorsementReciprocity.mutualChampions?.length) {
-          pdf.setTextColor(...GOLD);
-          pdf.text("Mutual Champions:", M, ey + 6);
-          pdf.setTextColor(...TEXT_LIGHT);
-          pdf.text(endorsementReciprocity.mutualChampions.slice(0, 5).map(p => p.name).join(", "), M + 40, ey + 6);
-        }
-        if (endorsementReciprocity.unreturned?.length) {
-          pdf.setTextColor(...TEAL);
-          pdf.text("Unreturned:", M, ey + 16);
-          pdf.setTextColor(...TEXT_LIGHT);
-          pdf.text(endorsementReciprocity.unreturned.slice(0, 5).map(p => p.name).join(", "), M + 40, ey + 16);
-        }
-      }
-
-      // Career timeline
-      if (positions && positions.length > 0) {
-        pdf.addPage(); darkPage();
-        footer(3, "Your Reputation", true);
-        let ty = M + 6;
-        ty = sectionHead("CAREER TIMELINE", ty, true);
-        positions.slice(0, 10).forEach((pos, i) => {
-          const py = ty + i * 14;
-          const title = pos["Title"] || pos["title"] || "";
-          const company = pos["Company Name"] || pos["company"] || "";
-          const started = pos["Started On"] || pos["start"] || "";
-          const ended = pos["Finished On"] || pos["end"] || "Present";
-          pdf.setFontSize(9);
-          pdf.setTextColor(...GOLD);
-          pdf.text(title.slice(0, 45), M, py + 5);
-          pdf.setTextColor(...TEXT_LIGHT);
-          pdf.text(company.slice(0, 40), M, py + 11);
-          pdf.setTextColor(...MUTED);
-          pdf.setFontSize(7);
-          pdf.text(`${started} \u2013 ${ended}`, W - M - 40, py + 5);
-        });
-      }
-
-      // ═══════════ CH 4 — CAREER INTENT (DARK) ═══════════
-      if (hasCareerIntel) {
-        pdf.addPage(); darkPage();
-        chapterTitle(4, "Your Career Intent", true);
-        footer(4, "Career Intent", true);
-
-        let ci4y = M + 40;
-        if (careerIntent) {
-          const intentStats = [
-            ["Saved Jobs", careerIntent.savedCount || 0],
-            ["Applications", careerIntent.appliedCount || 0],
-          ];
-          intentStats.forEach(([label, val], i) => {
-            const ix = M + i * 60;
-            pdf.setFillColor(13, 13, 20);
-            pdf.roundedRect(ix, ci4y, 55, 22, 2, 2, "F");
-            pdf.setFontSize(18);
-            pdf.setTextColor(...GOLD);
-            pdf.text(String(val), ix + 6, ci4y + 12);
-            pdf.setFontSize(7);
-            pdf.setTextColor(...MUTED);
-            pdf.text(label.toUpperCase(), ix + 6, ci4y + 19);
-          });
-
-          // Top job categories
-          if (careerIntent.topCategories?.length) {
-            ci4y += 32;
-            ci4y = sectionHead("TOP JOB CATEGORIES", ci4y, true);
-            careerIntent.topCategories.slice(0, 8).forEach((cat, i) => {
-              const name = typeof cat === "string" ? cat : cat[0] || cat.name || "";
-              pdf.setFontSize(8);
-              pdf.setTextColor(...TEXT_LIGHT);
-              pdf.text(`\u2022  ${name}`, M, ci4y + 6 + i * 8);
-            });
-          }
-        }
-
-        if (companyFollows && companyFollows.length > 0) {
-          let cfy = M + 130;
-          cfy = sectionHead("COMPANIES FOLLOWED", cfy, true);
-          pdf.setFontSize(8);
-          pdf.setTextColor(...TEXT_LIGHT);
-          const followNames = companyFollows.slice(0, 12).map(f => f["Organization"] || f["Company"] || Object.values(f)[0] || "").filter(Boolean);
-          followNames.forEach((name, i) => {
-            const col = i % 3, row = Math.floor(i / 3);
-            pdf.text(name.slice(0, 30), M + col * (cW / 3), cfy + 6 + row * 8);
-          });
-        }
-      }
-
-      // ═══════════ BACK PAGE ═══════════
-      pdf.addPage(); darkPage();
-      pdf.setDrawColor(...GOLD);
-      pdf.setLineWidth(0.3);
-      pdf.line(W / 2 - 20, H / 2 - 20, W / 2 + 20, H / 2 - 20);
-      pdf.setTextColor(...GOLD);
-      pdf.setFontSize(14);
-      pdf.text("CAREERPRINT.AI", W / 2, H / 2 - 6, { align: "center" });
-      pdf.setFontSize(9);
-      pdf.setTextColor(...MUTED);
-      pdf.text("Your career \u2014 as unique as your fingerprint", W / 2, H / 2 + 6, { align: "center" });
-      pdf.setFontSize(8);
-      pdf.text("Runs entirely in your browser \u2014 nothing stored or transmitted", W / 2, H / 2 + 18, { align: "center" });
-      pdf.line(W / 2 - 20, H / 2 + 24, W / 2 + 20, H / 2 + 24);
-
-      const fileName = `CareerPrint_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
-      pdf.save(fileName);
-    } catch (err) {
-      console.error("PDF export failed:", err);
-      alert("PDF export failed \u2014 check browser console for details.");
-    } finally {
-      setExporting(false);
+    } else {
+      // Fallback: radial glow
+      const grad = ctx.createRadialGradient(600, 300, 0, 600, 300, 400);
+      grad.addColorStop(0, "rgba(212,168,67,0.08)");
+      grad.addColorStop(1, "transparent");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
     }
-  };
+
+    // Top/bottom fade for text readability
+    const topGrad = ctx.createLinearGradient(0, 0, 0, 80);
+    topGrad.addColorStop(0, "rgba(5,5,8,0.9)");
+    topGrad.addColorStop(1, "rgba(5,5,8,0)");
+    ctx.fillStyle = topGrad;
+    ctx.fillRect(0, 0, W, 80);
+    const botGrad = ctx.createLinearGradient(0, H - 80, 0, H);
+    botGrad.addColorStop(0, "rgba(5,5,8,0)");
+    botGrad.addColorStop(1, "rgba(5,5,8,0.9)");
+    ctx.fillStyle = botGrad;
+    ctx.fillRect(0, H - 80, W, 80);
+
+    // Border
+    ctx.strokeStyle = "rgba(212,168,67,0.15)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+    // Branding top-left
+    ctx.font = "11px 'Space Mono', monospace";
+    ctx.fillStyle = "#d4a843";
+    ctx.letterSpacing = "4px";
+    ctx.textAlign = "left";
+    ctx.fillText("CAREERPRINT.AI", 48, 40);
+    ctx.letterSpacing = "0px";
+
+    // Tagline top-right
+    ctx.font = "italic 12px 'Playfair Display', serif";
+    ctx.fillStyle = "#6b6580";
+    ctx.textAlign = "right";
+    ctx.fillText("Your career — as unique as your fingerprint", W - 48, 40);
+
+    // Bottom bar
+    const grade = GRADE(c.score);
+    const gradeColor = { A: "#4caf50", B: "#d4a843", C: "#ff9800", D: "#e86060" }[grade];
+    const profileName = (profile && (profile["First Name"] || "")) ? `${profile["First Name"]} ${profile["Last Name"] || ""}`.trim() : "";
+
+    if (profileName) {
+      ctx.textAlign = "left";
+      ctx.font = "400 18px 'Playfair Display', serif";
+      ctx.fillStyle = "#e2ddd6";
+      ctx.fillText(profileName, 48, H - 34);
+    }
+
+    ctx.textAlign = "center";
+    ctx.font = "700 14px 'Space Mono', monospace";
+    ctx.fillStyle = gradeColor;
+    ctx.fillText(`${grade} \u00B7 ${GRADE_LABEL(c.score)} \u00B7 ${c.total.toLocaleString("en-US")} connections`, 600, H - 34);
+
+    ctx.textAlign = "right";
+    ctx.font = "11px 'Space Mono', monospace";
+    ctx.fillStyle = "#d4a843";
+    ctx.letterSpacing = "2px";
+    ctx.fillText("careerprint.ai", W - 48, H - 34);
+    ctx.letterSpacing = "0px";
+
+    // Download
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `CareerPrint_${grade}_${c.total}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  }, [c, skills, profile]);
 
   return (
-    <div ref={reportRef}>
+    <div>
       {/* Top navbar + reading progress */}
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999 }} data-navbar>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "6px 20px", background: "rgba(5,5,8,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)" }}>
@@ -2824,24 +2665,23 @@ function Results({ data, onReset }) {
           <span style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--gold)", fontFamily: "'Space Mono', monospace" }}>CAREERPRINT.AI</span>
           <span style={{ fontSize: 9, color: "var(--muted)", marginLeft: 4 }}>Your career — as unique as your fingerprint</span>
           <button
-            onClick={exportPDF}
-            disabled={exporting}
+            onClick={generateShareCard}
             style={{
               position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)",
               background: "none", border: "1px solid var(--border-bright)", borderRadius: 4,
-              padding: "4px 12px", cursor: exporting ? "wait" : "pointer",
+              padding: "4px 12px", cursor: "pointer",
               display: "flex", alignItems: "center", gap: 6,
               fontSize: 9, letterSpacing: "0.15em", color: "var(--gold)",
-              fontFamily: "'Space Mono', monospace", opacity: exporting ? 0.5 : 0.8,
+              fontFamily: "'Space Mono', monospace", opacity: 0.8,
               transition: "opacity 0.2s, border-color 0.2s",
             }}
-            onMouseEnter={e => { if (!exporting) { e.currentTarget.style.opacity = "1"; e.currentTarget.style.borderColor = "var(--gold)"; } }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = exporting ? "0.5" : "0.8"; e.currentTarget.style.borderColor = "var(--border-bright)"; }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.borderColor = "var(--gold)"; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = "0.8"; e.currentTarget.style.borderColor = "var(--border-bright)"; }}
           >
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+              <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
             </svg>
-            {exporting ? "GENERATING..." : "DOWNLOAD PDF"}
+            SHARE CARD
           </button>
         </div>
         <div style={{ height: 2, background: "transparent" }}>
@@ -2986,29 +2826,6 @@ function Results({ data, onReset }) {
                       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)` }} />
                       <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", color: accentColor, marginBottom: 8 }}>{ins.headline.toUpperCase()}</div>
                       <div style={{ fontSize: 13, lineHeight: 1.7, color: "var(--text)", marginBottom: 12 }}>{ins.body}</div>
-
-                      {/* Micro-viz: Arc gauge */}
-                      {ins.vizType === "arc" && (() => {
-                        const pct = Math.min(ins.stat / (ins.vizMax || 100), 1);
-                        const r = 18, cx = 22, cy = 22, stroke = 3;
-                        const circumference = Math.PI * r;
-                        return (
-                          <svg width={44} height={26} style={{ display: "block" }}>
-                            <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke="var(--border)" strokeWidth={stroke} />
-                            <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke={accentColor} strokeWidth={stroke}
-                              strokeDasharray={`${circumference * pct} ${circumference}`} strokeLinecap="round" />
-                          </svg>
-                        );
-                      })()}
-
-                      {/* Micro-viz: Delta badge */}
-                      {ins.vizType === "delta" && ins.delta != null && (
-                        <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", alignSelf: "flex-start",
-                          background: ins.delta > 0 ? "rgba(76,175,80,0.15)" : ins.delta < 0 ? "rgba(255,152,0,0.15)" : "rgba(255,255,255,0.06)",
-                          color: ins.delta > 0 ? "var(--green)" : ins.delta < 0 ? "var(--amber)" : "var(--muted)" }}>
-                          {ins.delta > 0 ? "+" : ""}{ins.delta}% YoY
-                        </span>
-                      )}
 
                       {/* Micro-viz: Sparkline */}
 
@@ -3389,30 +3206,26 @@ function Results({ data, onReset }) {
             <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
               <SectionLabel color="var(--cream-muted)" icon="messages">MESSAGES</SectionLabel>
               <div className="card" style={{ padding: 24 }}>
-                {/* Stat bubbles — chat conversation style */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24, maxWidth: 520 }}>
+                {/* Stat grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
                   {[
-                    { n: messages.total, l: "Total messages", side: "right", color: "gold" },
-                    { n: messages.uniqueConvos, l: "Conversations", side: "left", color: "teal" },
-                    { n: messages.avgDepth, l: "Avg msgs/thread", side: "right", color: "gold" },
-                    { n: messages.deepConvos, l: "Deep threads (10+)", side: "left", color: "teal" },
-                    { n: messages.longestConvo, l: "Longest thread", side: "right", color: "gold" },
+                    { n: messages.total, l: "Total messages", color: "gold" },
+                    { n: messages.uniqueConvos, l: "Conversations", color: "teal" },
+                    { n: messages.avgDepth, l: "Avg msgs/thread", color: "gold" },
+                    { n: messages.deepConvos, l: "Deep threads (10+)", color: "teal" },
+                    { n: messages.longestConvo, l: "Longest thread", color: "gold" },
                   ].map((s, i) => {
-                    const isRight = s.side === "right";
-                    const bg = isRight ? "rgba(212,168,67,0.08)" : "rgba(61,214,200,0.06)";
-                    const border = isRight ? "rgba(212,168,67,0.2)" : "rgba(61,214,200,0.15)";
-                    const numColor = isRight ? "var(--gold)" : "var(--teal)";
-                    const radius = isRight ? "14px 14px 4px 14px" : "14px 14px 14px 4px";
+                    const numColor = s.color === "gold" ? "var(--gold)" : "var(--teal)";
                     return (
-                      <div key={i} style={{ display: "flex", justifyContent: isRight ? "flex-end" : "flex-start" }}>
-                        <div style={{
-                          display: "flex", alignItems: "baseline", gap: 10, padding: "10px 18px",
-                          background: bg, border: `1px solid ${border}`, borderRadius: radius,
-                          animation: `floatIn 0.3s ${i * 0.08}s ease forwards`, opacity: 0,
-                        }}>
-                          <span className="serif" style={{ fontSize: 20, color: numColor, lineHeight: 1 }}><CountUp value={s.n} /></span>
-                          <span style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.08em" }}>{s.l.toUpperCase()}</span>
-                        </div>
+                      <div key={i} style={{
+                        padding: "12px 10px", textAlign: "center",
+                        background: s.color === "gold" ? "rgba(212,168,67,0.06)" : "rgba(61,214,200,0.04)",
+                        border: `1px solid ${s.color === "gold" ? "rgba(212,168,67,0.15)" : "rgba(61,214,200,0.12)"}`,
+                        borderRadius: 6,
+                        animation: `floatIn 0.3s ${i * 0.08}s ease forwards`, opacity: 0,
+                      }}>
+                        <span className="serif" style={{ fontSize: 22, color: numColor, lineHeight: 1, display: "block", marginBottom: 4 }}><CountUp value={s.n} /></span>
+                        <span style={{ fontSize: 9, color: "var(--cream-muted)", letterSpacing: "0.08em" }}>{s.l.toUpperCase()}</span>
                       </div>
                     );
                   })}
@@ -3788,18 +3601,27 @@ function Results({ data, onReset }) {
                         </linearGradient>
                       </defs>
 
-                      {/* Duration shading — subtle bars just above the baseline */}
+                      {/* Duration bars with degree labels */}
                       {items.map((d, i) => {
                         const x1 = xOfYear(d.startYr), x2 = xOfYear(d.endYr);
                         const barH = 14;
                         const yPos = baselineY - barH - i * (barH + 3);
+                        const barWidth = Math.max(x2 - x1, 6);
                         const color = hues[i % hues.length];
+                        const degree = d["Degree Name"] || "";
+                        const school = d["School Name"] || "";
+                        const label = degree ? (degree.length > 20 ? degree.slice(0, 18) + "…" : degree) : (school.length > 20 ? school.slice(0, 18) + "…" : school);
                         return (
                           <g key={`dur${i}`} style={{ animation: `fadeIn 0.6s ${0.4 + i * 0.15}s ease forwards`, opacity: 0 }}>
-                            <rect x={x1} y={yPos} width={Math.max(x2 - x1, 6)} height={barH}
-                              fill={color} opacity="0.1" rx="2" />
-                            <rect x={x1} y={yPos} width={Math.max(x2 - x1, 6)} height={barH}
-                              fill="none" stroke={color} strokeWidth="0.5" opacity="0.25" rx="2" />
+                            <rect x={x1} y={yPos} width={barWidth} height={barH}
+                              fill={color} opacity="0.15" rx="2" />
+                            <rect x={x1} y={yPos} width={barWidth} height={barH}
+                              fill="none" stroke={color} strokeWidth="0.5" opacity="0.3" rx="2" />
+                            {barWidth > 40 && (
+                              <text x={x1 + 4} y={yPos + barH / 2 + 3} fill={color} fontSize="6" fontFamily="'Space Mono', monospace" opacity="0.7">
+                                {label}
+                              </text>
+                            )}
                           </g>
                         );
                       })}
@@ -4393,23 +4215,6 @@ function Results({ data, onReset }) {
               </div>
             )}
 
-            {/* Saved Application Answers */}
-            {savedAnswers && savedAnswers.length > 0 && (
-              <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
-                <div className="card" style={{ padding: 24, borderColor: "rgba(232,96,96,0.15)" }}>
-                  <div style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--rose)", marginBottom: 14 }}>SAVED APPLICATION ANSWERS</div>
-                  <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.8, marginBottom: 14 }}>
-                    LinkedIn stores {savedAnswers.length} pre-saved answers you've used across job applications.
-                  </div>
-                  {savedAnswers.slice(0, 8).map((a, i) => (
-                    <div key={i} style={{ padding: "10px 0", borderBottom: i < Math.min(savedAnswers.length, 8) - 1 ? "1px solid var(--border)" : "none" }}>
-                      <div style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", marginBottom: 4 }}>{a["Question"] || `Question ${i + 1}`}</div>
-                      <div style={{ fontSize: 13, color: "var(--text)", maxHeight: 60, overflow: "hidden", maskImage: "linear-gradient(to bottom, black 70%, transparent)", WebkitMaskImage: "linear-gradient(to bottom, black 70%, transparent)" }}>{a["Answer"] || ""}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -4431,16 +4236,11 @@ function Results({ data, onReset }) {
               <a href="https://www.linkedin.com/in/robertbrowton" target="_blank" rel="noopener noreferrer" className="btn-primary">
                 CONNECT WITH ROB ON LINKEDIN
               </a>
-              <button
-                onClick={exportPDF}
-                disabled={exporting}
-                className="btn-ghost"
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, opacity: exporting ? 0.5 : 1 }}
-              >
+              <button onClick={generateShareCard} className="btn-ghost" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                 <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                  <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
                 </svg>
-                {exporting ? "GENERATING..." : "DOWNLOAD PDF"}
+                SHARE YOUR CAREERPRINT
               </button>
             </div>
             <div style={{ marginTop: 16 }}>
