@@ -25,9 +25,7 @@ const GLOBAL_CSS = createGlobalCSS({
   @keyframes pulseNode { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
   @keyframes electricPulse { 0% { stroke-dashoffset: 0; opacity: 0.6; } 25% { opacity: 0.9; } 50% { stroke-dashoffset: -1000; opacity: 0.6; } 75% { opacity: 0.9; } 100% { stroke-dashoffset: 0; opacity: 0.6; } }
   @keyframes emitFromCenter { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.3); filter: blur(4px); } 60% { filter: blur(0px); } 100% { opacity: 1; transform: translate(-50%,-50%) scale(1); filter: blur(0px); } }
-  @keyframes sealBreak { 0% { transform: scale(1) rotate(0); opacity: 1; } 50% { transform: scale(1.2) rotate(15deg); opacity: 0.6; } 100% { transform: scale(0.3) rotate(45deg); opacity: 0; } }
-  @keyframes slideUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-40px); opacity: 0; } }
-  @keyframes receiptLine { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }`,
+`,
 });
 
 // ─── Platform benchmarks & reference data ─────────────────────────────────────
@@ -169,43 +167,6 @@ function classifySeniority(title = "") {
 function normalizeLinkedInUrl(url = "") {
   return url.trim().toLowerCase()
     .replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
-}
-
-function parsePrivateAssets(text) {
-  const rows = [];
-  const lines = text.split(/\r?\n/);
-  if (lines.length < 2) return rows;
-  const headers = [];
-  let cur = "", inQ = false;
-  for (const ch of lines[0]) {
-    if (ch === '"') inQ = !inQ;
-    else if (ch === ',' && !inQ) { headers.push(cur.trim()); cur = ""; }
-    else cur += ch;
-  }
-  headers.push(cur.trim());
-
-  let rowBuf = "";
-  let rowQ = false;
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!rowQ && !rowBuf && !line.trim()) continue;
-    rowBuf += (rowBuf ? "\n" : "") + line;
-    for (const ch of line) { if (ch === '"') rowQ = !rowQ; }
-    if (!rowQ) {
-      const vals = []; let v = ""; let q = false;
-      for (const ch of rowBuf) {
-        if (ch === '"') q = !q;
-        else if (ch === ',' && !q) { vals.push(v.trim()); v = ""; }
-        else v += ch;
-      }
-      vals.push(v.trim());
-      const o = {};
-      headers.forEach((h, j) => o[h] = (vals[j] || "").replace(/"/g, "").trim());
-      rows.push(o);
-      rowBuf = "";
-    }
-  }
-  return rows;
 }
 
 function parseCSV(text) {
@@ -388,74 +349,6 @@ function analyseConnections(rows) {
   insights.forEach(ins => { if (ins.headline.toLowerCase().includes("network size")) ins.fullWidth = true; });
 
   return { total, industries, seniorities, yearMap, monthMap, last24, topInd, topCompanies, concentration, networkAge, firstYear, execPct, recent12, prev12, growthPct, score, insights, gaps, yearHistory, seasonality, weekdayOrdered, weekdayPct, dormant: dormant.length, peakYear, bench, notable };
-}
-
-function analyseAds(rows) {
-  return rows.flatMap(r => Object.values(r)).join(";").split(/[;,]/).map(s=>s.trim().replace(/"/g,"")).filter(s=>s.length>2 && s.length<60 && !/^\d+$/.test(s)).slice(0,50);
-}
-
-function parseAdTargeting(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return null;
-  // Parse header — keep duplicate names by appending index
-  const rawHeaders = [];
-  let cur = "", inQ = false;
-  for (const ch of lines[0]) {
-    if (ch === '"') inQ = !inQ;
-    else if (ch === ',' && !inQ) { rawHeaders.push(cur.trim()); cur = ""; }
-    else cur += ch;
-  }
-  rawHeaders.push(cur.trim());
-
-  // Parse data row
-  const vals = []; cur = ""; inQ = false;
-  for (const ch of lines[1]) {
-    if (ch === '"') inQ = !inQ;
-    else if (ch === ',' && !inQ) { vals.push(cur.trim()); cur = ""; }
-    else cur += ch;
-  }
-  vals.push(cur.trim());
-
-  // Merge duplicate headers by concatenating values with semicolons
-  const merged = {};
-  rawHeaders.forEach((h, i) => {
-    const v = (vals[i] || "").replace(/"/g, "").trim();
-    if (!v) return;
-    if (merged[h]) merged[h] += "; " + v;
-    else merged[h] = v;
-  });
-
-  // Split semicolons and clean
-  const categories = [];
-  const DISPLAY_ORDER = [
-    { key: "Job Seniorities", label: "YOUR SENIORITY", icon: "↑" },
-    { key: "Job Functions", label: "JOB FUNCTIONS", icon: "◆" },
-    { key: "Job Titles", label: "JOB TITLES LINKEDIN ASSIGNS YOU", icon: "◇" },
-    { key: "Company Industries", label: "INDUSTRY CLASSIFICATION", icon: "●" },
-    { key: "Member Interests", label: "INFERRED INTERESTS", icon: "◎" },
-    { key: "Buyer Groups", label: "ADVERTISER BUYER GROUPS", icon: "⦿" },
-    { key: "Member Traits", label: "BEHAVIOURAL TRAITS", icon: "△" },
-    { key: "High Value Audience Segments", label: "HIGH VALUE SEGMENTS", icon: "★" },
-    { key: "Member Skills", label: "TARGETABLE SKILLS", icon: "⬡" },
-    { key: "Fields of Study", label: "FIELDS OF STUDY", icon: "▣" },
-    { key: "Member Schools", label: "EDUCATION", icon: "▢" },
-    { key: "Company Size", label: "COMPANY SIZE", icon: "▪" },
-    { key: "Company Revenue", label: "COMPANY REVENUE", icon: "▫" },
-    { key: "Years of Experience", label: "EXPERIENCE", icon: "▬" },
-    { key: "Profile Locations", label: "LOCATION TARGETING", icon: "◈" },
-    { key: "Member Groups", label: "GROUPS", icon: "◆" },
-    { key: "Company Follower of", label: "COMPANIES YOU FOLLOW", icon: "◇" },
-    { key: "Company Connections", label: "COMPANY CONNECTIONS", icon: "○" },
-  ];
-
-  for (const { key, label, icon } of DISPLAY_ORDER) {
-    const raw = merged[key];
-    if (!raw) continue;
-    const items = raw.split(";").map(s => s.trim()).filter(s => s.length > 1 && !/^\d+$/.test(s));
-    if (items.length > 0) categories.push({ key, label, icon, items });
-  }
-
-  return categories.length > 0 ? categories : null;
 }
 
 function analyseMessages(rows) {
@@ -752,38 +645,6 @@ function analyseCareerIntent(savedJobs, applications, alerts) {
   return { savedCount, appliedCount, saveToApplyRatio, topCompanies, roleCategories, searchKeywords: [...new Set(searchKeywords)], recentApplications };
 }
 
-function analyseSpending(receipts) {
-  if (!receipts || receipts.length === 0) return null;
-  const byCurrency = {};
-  const byYear = {};
-
-  receipts.forEach(r => {
-    const amount = parseFloat((r["Amount"] || r["Total"] || r["Price"] || "0").replace(/[^0-9.\-]/g, ""));
-    const currency = (r["Currency"] || r["currency"] || "USD").trim().toUpperCase();
-    const dateStr = r["Date"] || r["Transaction Date"] || r["Purchase Date"] || "";
-    const yearMatch = dateStr.match(/(\d{4})/);
-    const year = yearMatch ? yearMatch[1] : "Unknown";
-
-    if (!isNaN(amount) && amount > 0) {
-      if (!byCurrency[currency]) byCurrency[currency] = { total: 0, count: 0 };
-      byCurrency[currency].total += amount;
-      byCurrency[currency].count++;
-
-      const yk = `${year}-${currency}`;
-      if (!byYear[yk]) byYear[yk] = { year, currency, total: 0, count: 0 };
-      byYear[yk].total += amount;
-      byYear[yk].count++;
-    }
-  });
-
-  const currencies = Object.entries(byCurrency).map(([currency, data]) => ({
-    currency, total: Math.round(data.total * 100) / 100, count: data.count
-  }));
-  const yearBreakdown = Object.values(byYear).sort((a,b) => a.year.localeCompare(b.year));
-
-  return { currencies, yearBreakdown, totalTransactions: receipts.length };
-}
-
 function analyseContentCreator(richMedia) {
   if (!richMedia || richMedia.length === 0) return null;
   const byYear = {};
@@ -875,52 +736,6 @@ function analyseEvents(events) {
   };
 }
 
-function analyseAICoach(guideMessages, coachMessages) {
-  const guide = guideMessages || [];
-  const coach = coachMessages || [];
-  if (guide.length === 0 && coach.length === 0) return null;
-
-  // Extract topics from guide messages (job match analyses)
-  const jobTitlesAnalysed = [];
-  const guideTopics = {};
-  guide.forEach(r => {
-    const content = r["CONTENT"] || r["Content"] || "";
-    const subject = r["SUBJECT"] || r["Subject"] || "";
-    // Try to extract job title from content
-    const titleMatch = content.match(/(?:role|position|job)[:\s]+["']?([^"'<\n,]+)/i) ||
-                       subject.match(/(.+)/);
-    if (titleMatch) {
-      const title = titleMatch[1].replace(/<[^>]+>/g, "").trim();
-      if (title.length > 3 && title.length < 100) jobTitlesAnalysed.push(title);
-    }
-    // Classify topic
-    const text = (subject + " " + content).toLowerCase();
-    if (text.includes("match") || text.includes("qualif")) guideTopics["Job Match Analysis"] = (guideTopics["Job Match Analysis"] || 0) + 1;
-    else if (text.includes("skill") || text.includes("learn")) guideTopics["Skills & Learning"] = (guideTopics["Skills & Learning"] || 0) + 1;
-    else if (text.includes("career") || text.includes("role")) guideTopics["Career Guidance"] = (guideTopics["Career Guidance"] || 0) + 1;
-    else guideTopics["General"] = (guideTopics["General"] || 0) + 1;
-  });
-
-  // Coach message topics
-  const coachTopics = {};
-  coach.forEach(r => {
-    const content = r["CONTENT"] || r["Content"] || "";
-    const text = content.toLowerCase();
-    if (text.includes("course") || text.includes("recommend")) coachTopics["Course Recommendations"] = (coachTopics["Course Recommendations"] || 0) + 1;
-    else if (text.includes("data") || text.includes("analy")) coachTopics["Data & Analytics"] = (coachTopics["Data & Analytics"] || 0) + 1;
-    else if (text.includes("lead") || text.includes("manage")) coachTopics["Leadership"] = (coachTopics["Leadership"] || 0) + 1;
-    else coachTopics["General"] = (coachTopics["General"] || 0) + 1;
-  });
-
-  return {
-    guideTotal: guide.length,
-    coachTotal: coach.length,
-    guideTopics: Object.entries(guideTopics).sort((a,b) => b[1] - a[1]),
-    coachTopics: Object.entries(coachTopics).sort((a,b) => b[1] - a[1]),
-    jobTitlesAnalysed: [...new Set(jobTitlesAnalysed)].slice(0, 10),
-  };
-}
-
 function analyseJobSeekerPrefs(prefs) {
   if (!prefs || prefs.length === 0) return null;
   const p = prefs[0]; // Single row
@@ -978,17 +793,6 @@ function analyseVerifications(verifications) {
     provider: v["Verification service provider"] || "",
     date: v["Verified date"] || "",
     expiry: v["Expiry date"] || "",
-  }));
-}
-
-function analyseProviders(providers) {
-  if (!providers || providers.length === 0) return null;
-  return providers.map(p => ({
-    category: p["ProFinder Service Category"] || p["Top Level Service Category"] || "",
-    secondary: p["Secondary Service Category"] || "",
-    remote: p["Available to Work Remotely"] || "",
-    status: p["Status"] || "",
-    created: p["Creation Time"] || "",
   }));
 }
 
@@ -1097,8 +901,6 @@ async function processZip(file) {
   const result = {};
   const cf = find("connections\\.csv"); if(cf) result.connections = parseCSV(await cf.async("string"));
   const mf = find("messages\\.csv");    if(mf) result.messages    = parseCSV(await mf.async("string"));
-  const af = find("ad_targeting\\.csv"); if(af) { const adText = await af.async("string"); result.adTargeting = parseAdTargeting(adText); result.adTargetingLegacy = analyseAds(parseCSV(adText)); }
-  const inf = find("inferences\\.csv"); if(inf) result.inferences  = parseCSV(await inf.async("string"));
   const ivf = find("invitations\\.csv");             if(ivf) result.invitations = parseCSV(await ivf.async("string"));
   const sf = find("skills\\.csv");                    if(sf) result.skills = parseCSV(await sf.async("string"));
   const ef = find("endorsement_received_info\\.csv"); if(ef) result.endorsements = parseCSV(await ef.async("string"));
@@ -1110,8 +912,6 @@ async function processZip(file) {
   const rgf = find("recommendations_given\\.csv");    if(rgf) result.recsGiven = parseCSV(await rgf.async("string"));
   const lf = find("learning\\.csv");                  if(lf) result.learning = parseCSV(await lf.async("string"));
   const egf = find("endorsement_given_info\\.csv");    if(egf) result.endorsementsGiven = parseCSV(await egf.async("string"));
-  const paf = find("private_identity_asset\\.csv");    if(paf) result.privateAssets = parsePrivateAssets(await paf.async("string"));
-  const rcf = find("receipts_v2\\.csv");               if(rcf) result.receipts = parseCSV(await rcf.async("string"));
   const rmf = find("rich_media\\.csv");                if(rmf) result.richMedia = parseCSV(await rmf.async("string"));
   const regf = find("registration\\.csv");             if(regf) result.registration = parseCSV(await regf.async("string"));
   const sjf = find("saved\\.?jobs\\.csv");             if(sjf) result.savedJobs = parseCSV(await sjf.async("string"));
@@ -1119,13 +919,10 @@ async function processZip(file) {
   const saf = find("saved.?job.?alerts?\\.csv");       if(saf) result.savedJobAlerts = parseCSV(await saf.async("string"));
   const cff = find("company.?follows\\.csv");          if(cff) result.companyFollows = parseCSV(await cff.async("string"));
   const evf = find("events\\.csv");                    if(evf) result.events = parseCSV(await evf.async("string"));
-  const gmf = find("guide_messages\\.csv");            if(gmf) result.guideMessages = parseCSV(await gmf.async("string"));
-  const lcf = find("learning_coach_messages\\.csv");   if(lcf) result.coachMessages = parseCSV(await lcf.async("string"));
   const jsp = find("job.?seeker.?preferences\\.csv");  if(jsp) result.jobSeekerPrefs = parseCSV(await jsp.async("string"));
   const jsaa = find("job.?applicant.?saved.?answers\\.csv"); if(jsaa) result.savedAnswers = parseCSV(await jsaa.async("string"));
   const jsqr = find("job.?applicant.?saved.?screening\\.csv"); if(jsqr) result.screeningResponses = parseCSV(await jsqr.async("string"));
   const ojp = find("online.?job.?postings\\.csv");     if(ojp) result.jobPostings = parseCSV(await ojp.async("string"));
-  const pvf = find("providers\\.csv");                 if(pvf) result.providers = parseCSV(await pvf.async("string"));
   const vff = find("verifications\\.csv");             if(vff) result.verifications = parseCSV(await vff.async("string"));
   // Articles (HTML files)
   const articleFiles = zip.file(/articles?\/.*\.html$/i);
@@ -1234,8 +1031,6 @@ export default function App() {
       setAnalysed({
         connections: analyseConnections(files.connections),
         messages:    files.messages    ? analyseMessages(files.messages)  : null,
-        adTargeting: files.adTargeting || null,
-        inferences:  files.inferences  ? analyseAds(files.inferences)     : null,
         invitations: files.invitations ? analyseInvitations(files.invitations) : null,
         skills:      (files.skills || files.endorsements) ? analyseSkills(files.skills, files.endorsements) : null,
         profile:     files.profile?.[0] || null,
@@ -1248,17 +1043,13 @@ export default function App() {
         endorsementReciprocity: analyseEndorsementReciprocity(files.endorsementsGiven, files.endorsements),
         silentNetwork: analyseSilentNetwork(files.connections, files.messages),
         careerIntent: analyseCareerIntent(files.savedJobs, files.jobApplications, files.savedJobAlerts),
-        privateAssets: files.privateAssets || null,
-        spending: analyseSpending(files.receipts),
         contentCreator: analyseContentCreator(files.richMedia),
         registration: files.registration?.[0] || null,
         companyFollows: analyseCompanyFollows(files.companyFollows, files.savedJobs),
         events: analyseEvents(files.events),
-        aiCoach: analyseAICoach(files.guideMessages, files.coachMessages),
         jobSeekerPrefs: analyseJobSeekerPrefs(files.jobSeekerPrefs),
         articles: analyseArticles(files.articles),
         verifications: analyseVerifications(files.verifications),
-        providers: analyseProviders(files.providers),
         savedAnswers: files.savedAnswers || null,
         jobPostings: files.jobPostings || null,
         filesFound:  Object.keys(files),
@@ -1304,10 +1095,10 @@ function Upload({ onDrop, dragOver, setDragOver, fileRef, process, error }) {
           <span style={{fontSize: 11,letterSpacing:"0.25em",color:"var(--gold)",borderBottom:"1px solid var(--gold-dim)",paddingBottom:2}}>CAREERPRINT.AI</span>
         </div>
         <h1 className="serif animate-fade-up-1" style={{fontSize:"clamp(32px,5vw,52px)",fontWeight:400,lineHeight:1.1,margin:"16px 0 12px"}}>
-          LinkedIn has been<br/>studying you for years.<br/><em style={{color:"var(--gold)"}}>Now return the favour.</em>
+          Your career has<br/>a fingerprint.<br/><em style={{color:"var(--gold)"}}>This is yours.</em>
         </h1>
         <p className="animate-fade-up-2" style={{color:"var(--muted)",fontSize: 13,lineHeight:1.8,marginBottom:36,maxWidth:520}}>
-          Upload your LinkedIn data export and discover what your network really says about you — concentration risks, seniority gaps, growth momentum, and how LinkedIn has categorised you for advertisers.
+          Upload your LinkedIn data export and discover what your network really says about you — your reach, your reputation, your momentum.
         </p>
         <div className={`drop-zone animate-fade-up-3 ${dragOver?"over":""}`}
           style={{padding:"48px 40px",textAlign:"center",marginBottom:16}}
@@ -1339,7 +1130,7 @@ function Upload({ onDrop, dragOver, setDragOver, fileRef, process, error }) {
 
 // ─── Analysing ────────────────────────────────────────────────────────────────
 function Analysing() {
-  const steps = ["Parsing connection data...","Classifying industries...","Scoring seniority levels...","Mapping career timeline...","Analysing skills & endorsements...","Cross-referencing endorsement reciprocity...","Scanning message engagement depth...","Analysing career intent signals...","Checking LinkedIn's hidden vault...","Reading LinkedIn AI conversations...","Parsing published articles...","Mapping company follows & events...","Cataloguing learning activity...","Calculating network health...","Generating insights..."];
+  const steps = ["Parsing connection data...","Classifying industries...","Scoring seniority levels...","Mapping career timeline...","Analysing skills & endorsements...","Cross-referencing endorsement reciprocity...","Scanning message engagement depth...","Analysing career intent signals...","Mapping content footprint...","Benchmarking against platform averages...","Parsing published articles...","Mapping company follows & events...","Cataloguing learning activity...","Calculating network health...","Generating insights..."];
   const [step,setStep] = useState(0);
   useEffect(()=>{const t=setInterval(()=>setStep(s=>Math.min(s+1,steps.length-1)),400);return()=>clearInterval(t);},[]);
   const progress = Math.round(((step + 1) / steps.length) * 100);
@@ -2642,7 +2433,7 @@ function SectionLabel({ children, color, icon }) {
 // ─── Results ──────────────────────────────────────────────────────────────────
 
 function Results({ data, onReset }) {
-  const { connections: c, messages, adTargeting, inferences, invitations, skills, profile, positions, education, certifications, recsReceived, recsGiven, learning, endorsementReciprocity, silentNetwork, careerIntent, privateAssets, spending, contentCreator, registration, companyFollows, events, aiCoach, jobSeekerPrefs, articles, verifications, providers, savedAnswers, filesFound } = data;
+  const { connections: c, messages, invitations, skills, profile, positions, education, certifications, recsReceived, recsGiven, learning, endorsementReciprocity, silentNetwork, careerIntent, contentCreator, registration, companyFollows, events, jobSeekerPrefs, articles, verifications, savedAnswers, filesFound } = data;
   const hasCareerIntel = (careerIntent && (careerIntent.savedCount > 0 || careerIntent.appliedCount > 0)) || jobSeekerPrefs || companyFollows;
 
   // Scroll progress bar
@@ -2664,7 +2455,6 @@ function Results({ data, onReset }) {
   const ch2Ref = useScrollReveal();
   const ch3Ref = useScrollReveal();
   const ch4Ref = useScrollReveal();
-  const ch5Ref = useScrollReveal();
   const finaleRef = useScrollReveal();
 
   // Precompute shared values
@@ -2675,23 +2465,8 @@ function Results({ data, onReset }) {
   const maxSeason = Math.max(...c.seasonality.map(s => s.count), 1);
   const maxWeekday = Math.max(...c.weekdayOrdered.map(d => d.count), 1);
 
-  const TAG_COLORS = {
-    "Job Seniorities": { border: "var(--gold)", color: "var(--gold)", bg: "rgba(212,168,67,0.08)" },
-    "Job Functions": { border: "var(--gold-dim)", color: "var(--gold)", bg: "transparent" },
-    "Job Titles": { border: "var(--gold-dim)", color: "var(--cream-text)", bg: "transparent" },
-    "Member Interests": { border: "var(--teal-dim)", color: "var(--teal)", bg: "transparent" },
-    "Buyer Groups": { border: "rgba(232,96,96,0.4)", color: "var(--rose)", bg: "rgba(232,96,96,0.05)" },
-    "Member Traits": { border: "var(--teal-dim)", color: "var(--teal)", bg: "transparent" },
-    "High Value Audience Segments": { border: "var(--gold)", color: "var(--gold)", bg: "rgba(212,168,67,0.08)" },
-    "Member Skills": { border: "var(--cream-border)", color: "var(--cream-muted)", bg: "transparent" },
-  };
-  const defaultTag = { border: "var(--cream-border)", color: "var(--cream-text)", bg: "transparent" };
-
   const [expanded, setExpanded] = useState({});
   const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
-  const [dossierOpen, setDossierOpen] = useState(false);
-  const [sealAnimating, setSealAnimating] = useState(false);
-  const breakSeal = () => { if (sealAnimating) return; setSealAnimating(true); setTimeout(() => setDossierOpen(true), 800); };
 
   // ─── PDF Export ──────────────────────────────────────────────────────────────
   const [exporting, setExporting] = useState(false);
@@ -2958,52 +2733,13 @@ function Results({ data, onReset }) {
         });
       }
 
-      // ═══════════ CH 4 — WHAT LINKEDIN KNOWS (LIGHT) ═══════════
-      if (adTargeting || inferences) {
-        pdf.addPage(); lightPage();
-        chapterTitle(4, "What LinkedIn Knows About You", false);
-        footer(4, "What LinkedIn Knows", false);
-
-        if (adTargeting) {
-          let ay = M + 40;
-          ay = sectionHead("AD TARGETING CATEGORIES", ay, false);
-          const tags = Object.entries(adTargeting).slice(0, 8);
-          tags.forEach(([category, items], ci) => {
-            if (!Array.isArray(items) || items.length === 0) return;
-            pdf.setFontSize(8);
-            pdf.setTextColor(...CREAM_MUTED);
-            pdf.text(category.toUpperCase(), M, ay + 5);
-            pdf.setFontSize(7);
-            pdf.setTextColor(...TEXT_DARK);
-            const itemStr = items.slice(0, 8).join(", ");
-            pdf.text(itemStr.slice(0, 100), M + 55, ay + 5);
-            ay += 9;
-          });
-        }
-
-        if (inferences && inferences.length > 0) {
-          let iny = M + 120;
-          iny = sectionHead("LINKEDIN\u2019S INFERENCES ABOUT YOU", iny, false);
-          pdf.setFontSize(8);
-          pdf.setTextColor(...TEXT_DARK);
-          const infTexts = inferences.slice(0, 12).map(inf => {
-            const val = inf["Inference"] || inf["inference"] || Object.values(inf)[0] || "";
-            return val;
-          }).filter(Boolean);
-          infTexts.forEach((t, i) => {
-            const col = i % 3, row = Math.floor(i / 3);
-            pdf.text(`\u2022 ${t.slice(0, 35)}`, M + col * (cW / 3), iny + 6 + row * 8);
-          });
-        }
-      }
-
-      // ═══════════ CH 5 — CAREER INTENT (DARK) ═══════════
+      // ═══════════ CH 4 — CAREER INTENT (DARK) ═══════════
       if (hasCareerIntel) {
         pdf.addPage(); darkPage();
-        chapterTitle(5, "Your Career Intent", true);
-        footer(5, "Career Intent", true);
+        chapterTitle(4, "Your Career Intent", true);
+        footer(4, "Career Intent", true);
 
-        let ci5y = M + 40;
+        let ci4y = M + 40;
         if (careerIntent) {
           const intentStats = [
             ["Saved Jobs", careerIntent.savedCount || 0],
@@ -3012,24 +2748,24 @@ function Results({ data, onReset }) {
           intentStats.forEach(([label, val], i) => {
             const ix = M + i * 60;
             pdf.setFillColor(13, 13, 20);
-            pdf.roundedRect(ix, ci5y, 55, 22, 2, 2, "F");
+            pdf.roundedRect(ix, ci4y, 55, 22, 2, 2, "F");
             pdf.setFontSize(18);
             pdf.setTextColor(...GOLD);
-            pdf.text(String(val), ix + 6, ci5y + 12);
+            pdf.text(String(val), ix + 6, ci4y + 12);
             pdf.setFontSize(7);
             pdf.setTextColor(...MUTED);
-            pdf.text(label.toUpperCase(), ix + 6, ci5y + 19);
+            pdf.text(label.toUpperCase(), ix + 6, ci4y + 19);
           });
 
           // Top job categories
           if (careerIntent.topCategories?.length) {
-            ci5y += 32;
-            ci5y = sectionHead("TOP JOB CATEGORIES", ci5y, true);
+            ci4y += 32;
+            ci4y = sectionHead("TOP JOB CATEGORIES", ci4y, true);
             careerIntent.topCategories.slice(0, 8).forEach((cat, i) => {
               const name = typeof cat === "string" ? cat : cat[0] || cat.name || "";
               pdf.setFontSize(8);
               pdf.setTextColor(...TEXT_LIGHT);
-              pdf.text(`\u2022  ${name}`, M, ci5y + 6 + i * 8);
+              pdf.text(`\u2022  ${name}`, M, ci4y + 6 + i * 8);
             });
           }
         }
@@ -4342,550 +4078,158 @@ function Results({ data, onReset }) {
               </div>
             </div>
           )}
+          {/* ── Account Age — Timeline Ruler ───────────────────────── */}
+          {registration && (() => {
+            const dateStr = registration["Registered At"] || registration["Registration Date"] || registration["Date"] || "";
+            const regDate = new Date(dateStr);
+            const isValid = !isNaN(regDate);
+            const years = isValid ? Math.floor((Date.now() - regDate) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
+            const startYear = isValid ? regDate.getFullYear() : 2020;
+            const endYear = new Date().getFullYear();
+            const yearSpan = endYear - startYear || 1;
+            const W = 700, H = 60, padL = 10, padR = 10;
+            const chartW = W - padL - padR;
+            return (
+              <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
+                <div className="card" style={{ padding: "20px 24px", borderColor: "rgba(212,168,67,0.2)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <Icon name="calendar" size={12} color="var(--muted)" />ACCOUNT AGE
+                    </div>
+                    <div className="serif" style={{ fontSize: 36, color: "var(--gold)", lineHeight: 1 }}>
+                      <CountUp value={years} /><span style={{ fontSize: 16, opacity: 0.6 }}>yr</span>
+                    </div>
+                  </div>
+                  <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+                    <line x1={padL} y1={25} x2={padL + chartW} y2={25} stroke="var(--border)" strokeWidth="1" />
+                    <line x1={padL} y1={25} x2={padL + chartW} y2={25} stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"
+                      strokeDasharray={chartW} strokeDashoffset={chartW}
+                      style={{ animation: "drawIn 1.5s 0.3s ease forwards" }} />
+                    {Array.from({ length: yearSpan + 1 }, (_, i) => {
+                      const yr = startYear + i;
+                      const x = padL + (i / yearSpan) * chartW;
+                      const show = yearSpan <= 8 || i % Math.ceil(yearSpan / 8) === 0 || i === yearSpan;
+                      return show ? (
+                        <g key={yr}>
+                          <line x1={x} y1={20} x2={x} y2={30} stroke="var(--border)" strokeWidth="0.5" />
+                          <text x={x} y={45} textAnchor="middle" fill="var(--muted)" fontSize="7" fontFamily="'Space Mono', monospace" opacity="0.6">{yr}</text>
+                        </g>
+                      ) : null;
+                    })}
+                    <circle cx={padL} cy={25} r="4" fill="var(--surface)" stroke="var(--gold)" strokeWidth="1.5"
+                      style={{ animation: "floatIn 0.4s 0.3s ease forwards", opacity: 0 }} />
+                    <circle cx={padL + chartW} cy={25} r="4" fill="var(--gold)"
+                      style={{ animation: "floatIn 0.4s 1.5s ease forwards", opacity: 0 }} />
+                  </svg>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                    Registered <strong style={{ color: "var(--gold)" }}>{dateStr || "Unknown"}</strong>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Content Creator — Type bars + year chart ────────────── */}
+          {contentCreator && (
+            <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
+              <SectionLabel icon="content">CONTENT CREATOR</SectionLabel>
+              <div className="card" style={{ padding: 24 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 20 }}>
+                  <span className="serif" style={{ fontSize: 28, color: "var(--teal)", lineHeight: 1 }}>{contentCreator.totalPieces}</span>
+                  <span style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.1em" }}>MEDIA ITEMS PUBLISHED</span>
+                </div>
+
+                {contentCreator.byType.length > 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    {contentCreator.byType.map(([type, count], i) => {
+                      const max = Math.max(...contentCreator.byType.map(([, c]) => c), 1);
+                      return (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                          <span style={{ fontSize: 10, color: "var(--text)", width: 80, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>{type}</span>
+                          <div style={{ flex: 1, height: 6, background: "var(--surface)", border: "1px solid var(--border)", overflow: "hidden" }}>
+                            <div style={{ width: `${(count / max) * 100}%`, height: "100%", background: "var(--teal)", opacity: 0.5, transformOrigin: "left", animation: `barGrowH 0.6s ${i * 0.1}s ease forwards`, transform: "scaleX(0)" }} />
+                          </div>
+                          <span className="serif" style={{ fontSize: 16, color: "var(--teal)", width: 30, textAlign: "right" }}>{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {contentCreator.byYear.length > 1 && (() => {
+                  const data = contentCreator.byYear;
+                  const maxY = Math.max(...data.map(([, c]) => c), 1);
+                  const W = 600, H = 80, pad = 10;
+                  const chartW = W - pad * 2;
+                  return (
+                    <div>
+                      <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--muted)", marginBottom: 8 }}>PUBLISHED BY YEAR</div>
+                      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+                        {data.map(([year, count], i) => {
+                          const x = pad + (i / (data.length - 1 || 1)) * chartW;
+                          const h = (count / maxY) * 50;
+                          return (
+                            <g key={i}>
+                              <rect x={x - 12} y={60 - h} width={24} height={h} rx={4} fill="var(--teal)" opacity="0.4"
+                                style={{ transformOrigin: `${x}px 60px`, animation: `barGrow 0.5s ${i * 0.08}s ease forwards`, transform: "scaleY(0)" }} />
+                              <text x={x} y={74} textAnchor="middle" fill="var(--muted)" fontSize="7" fontFamily="'Space Mono', monospace">{year.toString().slice(2)}</text>
+                              {count > 0 && <text x={x} y={60 - h - 4} textAnchor="middle" fill="var(--teal)" fontSize="7" fontFamily="'Space Mono', monospace">{count}</text>}
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* ── Verifications — Badge Cards ─────────────────────────── */}
+          {verifications && verifications.length > 0 && (
+            <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
+              <SectionLabel icon="verify">IDENTITY VERIFICATIONS</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {verifications.map((v, i) => {
+                  const isExpired = v.expiry && new Date(v.expiry) < new Date();
+                  const accent = isExpired ? "var(--rose)" : "var(--green)";
+                  return (
+                    <div key={i} className="card" style={{
+                      padding: "16px 20px", borderLeft: `4px solid ${accent}`,
+                      display: "flex", alignItems: "center", gap: 14,
+                      animation: `floatIn 0.4s ${i * 0.1}s ease forwards`, opacity: 0,
+                    }}>
+                      <svg width="24" height="28" viewBox="0 0 24 28" fill="none" style={{ flexShrink: 0 }}>
+                        <path d="M12 2L2 7v7c0 6.55 4.27 12.68 10 14.16C17.73 26.68 22 20.55 22 14V7L12 2z" fill={`${accent}11`} stroke={accent} strokeWidth="1.2" />
+                        {!isExpired && <path d="M8 14l3 3 5-5" stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
+                        {isExpired && <><line x1="9" y1="11" x2="15" y2="17" stroke={accent} strokeWidth="1.5" /><line x1="15" y1="11" x2="9" y2="17" stroke={accent} strokeWidth="1.5" /></>}
+                      </svg>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 700 }}>{v.type || "Identity Verification"}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{[v.docType, v.provider, v.org].filter(Boolean).join(" · ")}</div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontSize: 11, color: accent, fontFamily: "'Space Mono', monospace" }}>{isExpired ? "EXPIRED" : "VERIFIED"}</div>
+                        <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 2 }}>{v.date}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 
       <ChapterDivider />
 
       {/* ═══════════════════════════════════════════════════════════════════════
-          CHAPTER 4 — WHAT LINKEDIN KNOWS ABOUT YOU (LIGHT, rose accents)
-          ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="chapter chapter-light" ref={ch4Ref}>
-        {/* Sealed Dossier Cover */}
-        {!dossierOpen ? (
-          <div className="chapter-opener" style={{ position: "relative", minHeight: "70vh", cursor: "default" }}>
-            <div className="scroll-reveal" style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 11, letterSpacing: "0.35em", color: "var(--rose)", marginBottom: 24, opacity: 0.7 }}>CHAPTER 04</div>
-              <h2 className="serif" style={{ fontSize: "clamp(28px, 4vw, 44px)", lineHeight: 1.2, marginBottom: 16, color: "var(--cream-text)" }}>
-                What LinkedIn <em style={{ color: "var(--rose)" }}>Knows</em> About You
-              </h2>
-              <p style={{ fontSize: 13, color: "var(--cream-muted)", lineHeight: 1.8, maxWidth: 500, margin: "0 auto 40px" }}>
-                Ad targeting categories, stored files, AI interactions, spending, and inferences LinkedIn has drawn from your activity.
-              </p>
-
-              {/* Seal graphic */}
-              <div style={{ position: "relative", display: "inline-block", animation: sealAnimating ? "sealBreak 0.7s cubic-bezier(0.22,1,0.36,1) forwards" : "none" }}>
-                <svg width={120} height={120} viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r="54" fill="none" stroke="var(--rose)" strokeWidth="2" opacity="0.3" />
-                  <circle cx="60" cy="60" r="46" fill="none" stroke="var(--rose)" strokeWidth="1" opacity="0.2" />
-                  <circle cx="60" cy="60" r="50" fill="rgba(232,96,96,0.06)" />
-                  {/* Fingerprint motif */}
-                  <path d="M60 30 Q45 40 45 55 Q45 70 60 76" fill="none" stroke="var(--rose)" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
-                  <path d="M60 30 Q75 40 75 55 Q75 70 60 76" fill="none" stroke="var(--rose)" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
-                  <path d="M60 38 Q50 45 50 55 Q50 65 60 70" fill="none" stroke="var(--rose)" strokeWidth="1" strokeLinecap="round" opacity="0.3" />
-                  <path d="M60 38 Q70 45 70 55 Q70 65 60 70" fill="none" stroke="var(--rose)" strokeWidth="1" strokeLinecap="round" opacity="0.25" />
-                  <line x1="60" y1="35" x2="60" y2="72" stroke="var(--rose)" strokeWidth="0.8" opacity="0.2" />
-                  <text x="60" y="90" textAnchor="middle" fill="var(--rose)" fontSize="7" fontFamily="'Space Mono', monospace" letterSpacing="3" opacity="0.6">SEALED</text>
-                </svg>
-              </div>
-
-              <div style={{ marginTop: 32 }}>
-                <button onClick={breakSeal} style={{
-                  background: "none", border: "1px solid var(--rose)", color: "var(--rose)",
-                  padding: "10px 28px", fontSize: 11, letterSpacing: "0.2em",
-                  fontFamily: "'Space Mono', monospace", cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  opacity: sealAnimating ? 0 : 1,
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(232,96,96,0.08)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "none"; }}
-                >
-                  OPEN DOSSIER
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            <ChapterOpener number="04" title={<>What LinkedIn <em style={{ color: "var(--rose)" }}>Knows</em> About You</>} subtitle="Ad targeting categories, stored files, AI interactions, spending, and inferences LinkedIn has drawn from your activity." />
-
-            <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px", boxSizing: "border-box", color: "var(--cream-text)", animation: "fadeUp 0.8s ease forwards" }}>
-
-              {/* ── Ad Targeting Mosaic ─────────────────────────────────── */}
-              {adTargeting && adTargeting.length > 0 && (() => {
-                const totalItems = adTargeting.reduce((s, c) => s + c.items.length, 0);
-                return (
-                  <div className="scroll-reveal" style={{ marginBottom: 64 }}>
-                    <div className="card" style={{ padding: 20, marginBottom: 16, borderColor: "rgba(232,96,96,0.15)", background: "rgba(232,96,96,0.03)" }}>
-                      <div style={{ fontSize: 13, color: "var(--cream-text)", lineHeight: 1.8 }}>
-                        LinkedIn has placed you in <strong style={{ color: "var(--rose)" }}>{adTargeting.length} targeting categories</strong> containing <strong style={{ color: "var(--rose)" }}>{totalItems} individual labels</strong> used to sell access to advertisers.
-                      </div>
-                    </div>
-
-                    {/* Mosaic grid — categories sized by item count */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
-                      {adTargeting.map((cat, ci) => {
-                        const colors = TAG_COLORS[cat.key] || defaultTag;
-                        const COLLAPSE_THRESHOLD = 12;
-                        const isLong = cat.items.length > COLLAPSE_THRESHOLD;
-                        const isExpanded = expanded[cat.key];
-                        const displayItems = isLong && !isExpanded ? cat.items.slice(0, COLLAPSE_THRESHOLD) : cat.items;
-                        const size = cat.items.length;
-
-                        return (
-                          <div key={ci} className="card" style={{
-                            padding: "18px 20px",
-                            gridColumn: size > 15 ? "span 2" : "span 1",
-                            borderColor: colors.border,
-                            transition: "border-color 0.3s",
-                          }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 14, opacity: 0.6 }}>{cat.icon}</span>
-                                <span style={{ fontSize: 10, letterSpacing: "0.15em", color: colors.color, fontFamily: "'Space Mono', monospace" }}>{cat.label}</span>
-                              </div>
-                              <span style={{
-                                fontSize: 9, padding: "2px 8px", borderRadius: 10,
-                                background: "rgba(232,96,96,0.08)", color: "var(--rose)",
-                                fontFamily: "'Space Mono', monospace",
-                              }}>{size}</span>
-                            </div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                              {displayItems.map((item, i) => (
-                                <span key={i} style={{
-                                  padding: "3px 10px", border: `1px solid ${colors.border}`,
-                                  fontSize: 10, color: colors.color, background: colors.bg,
-                                  animation: `floatIn 0.3s ${Math.min(i * 0.02, 0.4)}s ease forwards`, opacity: 0,
-                                }}>{item}</span>
-                              ))}
-                            </div>
-                            {isLong && (
-                              <button onClick={() => toggle(cat.key)} style={{
-                                marginTop: 8, background: "none", border: "none",
-                                color: "var(--rose)", fontSize: 10, cursor: "pointer",
-                                fontFamily: "'Space Mono', monospace", letterSpacing: "0.1em", padding: 0,
-                              }}>
-                                {isExpanded ? "▲ LESS" : `▼ ALL ${cat.items.length}`}
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ── Account Age — Timeline Ruler ───────────────────────── */}
-              {registration && (() => {
-                const dateStr = registration["Registered At"] || registration["Registration Date"] || registration["Date"] || "";
-                const regDate = new Date(dateStr);
-                const isValid = !isNaN(regDate);
-                const years = isValid ? Math.floor((Date.now() - regDate) / (365.25 * 24 * 60 * 60 * 1000)) : 0;
-                const startYear = isValid ? regDate.getFullYear() : 2020;
-                const endYear = new Date().getFullYear();
-                const yearSpan = endYear - startYear || 1;
-                const W = 700, H = 60, padL = 10, padR = 10;
-                const chartW = W - padL - padR;
-                return (
-                  <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
-                    <div className="card" style={{ padding: "20px 24px", borderColor: "rgba(212,168,67,0.2)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                        <div style={{ fontSize: 11, letterSpacing: "0.2em", color: "var(--cream-muted)", display: "flex", alignItems: "center", gap: 6 }}>
-                          <Icon name="calendar" size={12} color="var(--cream-muted)" />ACCOUNT AGE
-                        </div>
-                        <div className="serif" style={{ fontSize: 36, color: "var(--gold)", lineHeight: 1 }}>
-                          <CountUp value={years} /><span style={{ fontSize: 16, opacity: 0.6 }}>yr</span>
-                        </div>
-                      </div>
-                      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
-                        {/* Timeline ruler */}
-                        <line x1={padL} y1={25} x2={padL + chartW} y2={25} stroke="var(--cream-border)" strokeWidth="1" />
-                        <line x1={padL} y1={25} x2={padL + chartW} y2={25} stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"
-                          strokeDasharray={chartW} strokeDashoffset={chartW}
-                          style={{ animation: "drawIn 1.5s 0.3s ease forwards" }} />
-                        {/* Year ticks */}
-                        {Array.from({ length: yearSpan + 1 }, (_, i) => {
-                          const yr = startYear + i;
-                          const x = padL + (i / yearSpan) * chartW;
-                          const show = yearSpan <= 8 || i % Math.ceil(yearSpan / 8) === 0 || i === yearSpan;
-                          return show ? (
-                            <g key={yr}>
-                              <line x1={x} y1={20} x2={x} y2={30} stroke="var(--cream-border)" strokeWidth="0.5" />
-                              <text x={x} y={45} textAnchor="middle" fill="var(--cream-muted)" fontSize="7" fontFamily="'Space Mono', monospace" opacity="0.6">{yr}</text>
-                            </g>
-                          ) : null;
-                        })}
-                        {/* Start dot */}
-                        <circle cx={padL} cy={25} r="4" fill="var(--cream)" stroke="var(--gold)" strokeWidth="1.5"
-                          style={{ animation: "floatIn 0.4s 0.3s ease forwards", opacity: 0 }} />
-                        {/* End dot */}
-                        <circle cx={padL + chartW} cy={25} r="4" fill="var(--gold)"
-                          style={{ animation: "floatIn 0.4s 1.5s ease forwards", opacity: 0 }} />
-                      </svg>
-                      <div style={{ fontSize: 11, color: "var(--cream-muted)", marginTop: 4 }}>
-                        Registered <strong style={{ color: "var(--gold)" }}>{dateStr || "Unknown"}</strong>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ── CV Vault — File Drawer Cards ───────────────────────── */}
-              {privateAssets && privateAssets.length > 0 && (
-                <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
-                  <SectionLabel color="var(--rose)" icon="vault">CV VAULT</SectionLabel>
-                  <div className="card" style={{ padding: 24, borderColor: "rgba(232,96,96,0.2)" }}>
-                    <div style={{ fontSize: 13, color: "var(--cream-text)", lineHeight: 1.8, marginBottom: 16 }}>
-                      LinkedIn retains <strong style={{ color: "var(--rose)" }}>{privateAssets.length} private identity asset{privateAssets.length !== 1 ? "s" : ""}</strong> including uploaded resumes and CVs.
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {privateAssets.slice(0, 5).map((asset, i) => {
-                        const name = asset["Asset Name"] || asset["Name"] || asset["File Name"] || Object.values(asset).find(v => v && v.length > 2) || "";
-                        const preview = name.length > 100 ? name.slice(0, 98) + "…" : name;
-                        return (
-                          <div key={i} style={{
-                            display: "flex", alignItems: "center", gap: 12,
-                            padding: "12px 16px",
-                            background: "rgba(232,96,96,0.03)",
-                            border: "1px solid rgba(232,96,96,0.12)",
-                            borderLeft: "3px solid var(--rose)",
-                            animation: `receiptLine 0.4s ${i * 0.1}s ease forwards`, opacity: 0,
-                          }}>
-                            {/* Document icon */}
-                            <svg width="18" height="22" viewBox="0 0 18 22" fill="none" style={{ flexShrink: 0 }}>
-                              <path d="M1 3C1 1.9 1.9 1 3 1h8l5 5v13c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3z" stroke="var(--rose)" strokeWidth="1.2" />
-                              <path d="M11 1v5h5" stroke="var(--rose)" strokeWidth="1.2" />
-                              <line x1="4" y1="10" x2="13" y2="10" stroke="var(--rose)" strokeWidth="0.5" opacity="0.3" />
-                              <line x1="4" y1="13" x2="11" y2="13" stroke="var(--rose)" strokeWidth="0.5" opacity="0.3" />
-                              <line x1="4" y1="16" x2="9" y2="16" stroke="var(--rose)" strokeWidth="0.5" opacity="0.3" />
-                            </svg>
-                            <span style={{ fontSize: 11, color: "var(--cream-text)", fontFamily: "'Space Mono', monospace", flex: 1, wordBreak: "break-all" }}>
-                              {preview || `Asset ${i + 1}`}
-                            </span>
-                            <span style={{ fontSize: 8, padding: "2px 8px", border: "1px solid rgba(232,96,96,0.25)", color: "var(--rose)", letterSpacing: "0.1em", flexShrink: 0 }}>STORED</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--rose)", marginTop: 14, lineHeight: 1.7, opacity: 0.8 }}>
-                      Consider reviewing and removing outdated uploads via LinkedIn Settings → Data Privacy.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── AI Coach — Conversation Thread ─────────────────────── */}
-              {aiCoach && (
-                <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
-                  <SectionLabel color="var(--cream-muted)" icon="ai">LINKEDIN AI INTERACTIONS</SectionLabel>
-                  <div className="card" style={{ padding: 24 }}>
-                    {/* Horizontal gauges */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-                      {[
-                        { label: "JOB GUIDE", count: aiCoach.guideTotal, color: "var(--gold)" },
-                        { label: "LEARNING COACH", count: aiCoach.coachTotal, color: "var(--teal)" },
-                      ].map((g, i) => {
-                        const maxVal = Math.max(aiCoach.guideTotal, aiCoach.coachTotal, 1);
-                        const pct = (g.count / maxVal) * 100;
-                        return (
-                          <div key={i}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                              <span style={{ fontSize: 9, letterSpacing: "0.12em", color: "var(--cream-muted)" }}>{g.label}</span>
-                              <span className="serif" style={{ fontSize: 22, color: g.color }}><CountUp value={g.count} /></span>
-                            </div>
-                            <div style={{ height: 6, background: "var(--cream)", border: "1px solid var(--cream-border)", overflow: "hidden" }}>
-                              <div style={{ width: `${pct}%`, height: "100%", background: g.color, opacity: 0.5, transformOrigin: "left", animation: "barGrowH 0.8s 0.3s ease forwards", transform: "scaleX(0)" }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Topic bars */}
-                    {aiCoach.guideTopics.length > 0 && (
-                      <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 8 }}>GUIDE TOPICS</div>
-                        {aiCoach.guideTopics.map(([topic, count], i) => {
-                          const max = Math.max(...aiCoach.guideTopics.map(([, c]) => c), 1);
-                          return (
-                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                              <span style={{ fontSize: 10, color: "var(--cream-text)", width: 140, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topic}</span>
-                              <div style={{ flex: 1, height: 4, background: "var(--cream)", border: "1px solid var(--cream-border)", overflow: "hidden" }}>
-                                <div style={{ width: `${(count / max) * 100}%`, height: "100%", background: "var(--gold)", opacity: 0.5, transformOrigin: "left", animation: `barGrowH 0.6s ${i * 0.05}s ease forwards`, transform: "scaleX(0)" }} />
-                              </div>
-                              <span style={{ fontSize: 9, color: "var(--gold)", fontFamily: "'Space Mono', monospace", width: 20, textAlign: "right" }}>{count}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {aiCoach.coachTopics.length > 0 && (
-                      <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 8 }}>COACH TOPICS</div>
-                        {aiCoach.coachTopics.map(([topic, count], i) => {
-                          const max = Math.max(...aiCoach.coachTopics.map(([, c]) => c), 1);
-                          return (
-                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                              <span style={{ fontSize: 10, color: "var(--cream-text)", width: 140, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topic}</span>
-                              <div style={{ flex: 1, height: 4, background: "var(--cream)", border: "1px solid var(--cream-border)", overflow: "hidden" }}>
-                                <div style={{ width: `${(count / max) * 100}%`, height: "100%", background: "var(--teal)", opacity: 0.5, transformOrigin: "left", animation: `barGrowH 0.6s ${i * 0.05}s ease forwards`, transform: "scaleX(0)" }} />
-                              </div>
-                              <span style={{ fontSize: 9, color: "var(--teal)", fontFamily: "'Space Mono', monospace", width: 20, textAlign: "right" }}>{count}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Job titles as chat bubbles */}
-                    {aiCoach.jobTitlesAnalysed.length > 0 && (
-                      <div style={{ marginTop: 16 }}>
-                        <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 10 }}>JOB TITLES AI ANALYSED</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {aiCoach.jobTitlesAnalysed.map((t, i) => (
-                            <div key={i} style={{
-                              display: "inline-flex", alignSelf: "flex-start",
-                              padding: "8px 14px",
-                              background: "rgba(61,214,200,0.05)",
-                              border: "1px solid rgba(61,214,200,0.12)",
-                              borderRadius: "12px 12px 12px 4px",
-                              fontSize: 12, color: "var(--cream-text)",
-                              animation: `floatIn 0.3s ${i * 0.08}s ease forwards`, opacity: 0,
-                            }}>
-                              {t}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div style={{ fontSize: 11, color: "var(--rose)", marginTop: 16, lineHeight: 1.7, opacity: 0.8 }}>
-                      LinkedIn stores your conversations with its AI tools, including job match analyses and career coaching.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Premium Spend — Receipt Tape ───────────────────────── */}
-              {spending && spending.currencies.length > 0 && (
-                <div className="scroll-reveal" style={{ marginBottom: 64 }}>
-                  <SectionLabel color="var(--cream-muted)" icon="spend">PREMIUM SPEND</SectionLabel>
-                  <div className="card" style={{ padding: 24 }}>
-                    {/* Hero total */}
-                    <div style={{ marginBottom: 20 }}>
-                      {spending.currencies.map((cur, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: i < spending.currencies.length - 1 ? 8 : 0 }}>
-                          <span className="serif" style={{ fontSize: 32, color: "var(--gold)", lineHeight: 1 }}>
-                            {cur.currency === "USD" ? "$" : cur.currency === "GBP" ? "£" : cur.currency === "EUR" ? "€" : ""}<CountUp value={Math.round(cur.total)} />
-                          </span>
-                          <span style={{ fontSize: 10, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>{cur.currency} · {cur.count} transactions</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Receipt tape */}
-                    {spending.yearBreakdown.length > 0 && (
-                      <div style={{ borderTop: "1px dashed var(--cream-border)", paddingTop: 16 }}>
-                        <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 12 }}>YEARLY BREAKDOWN</div>
-                        {spending.yearBreakdown.map((y, i) => {
-                          const sym = y.currency === "USD" ? "$" : y.currency === "GBP" ? "£" : y.currency === "EUR" ? "€" : "";
-                          return (
-                            <div key={i} style={{
-                              display: "flex", alignItems: "baseline", padding: "6px 0",
-                              borderBottom: "1px dotted var(--cream-border)",
-                              fontFamily: "'Space Mono', monospace",
-                              animation: `receiptLine 0.3s ${i * 0.06}s ease forwards`, opacity: 0,
-                            }}>
-                              <span style={{ fontSize: 11, color: "var(--cream-text)" }}>{y.year}</span>
-                              <span style={{ flex: 1, borderBottom: "1px dotted var(--cream-border)", margin: "0 8px", opacity: 0.3, height: 1, alignSelf: "center" }} />
-                              <span style={{ fontSize: 11, color: "var(--gold)", fontWeight: 700 }}>{sym}{y.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                              <span style={{ fontSize: 9, color: "var(--cream-muted)", marginLeft: 8 }}>{y.currency}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Content Creator — Type bars + year chart ────────────── */}
-              {contentCreator && (
-                <div className="scroll-reveal scroll-reveal-delay-1" style={{ marginBottom: 64 }}>
-                  <SectionLabel color="var(--cream-muted)" icon="content">CONTENT CREATOR</SectionLabel>
-                  <div className="card" style={{ padding: 24 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 20 }}>
-                      <span className="serif" style={{ fontSize: 28, color: "var(--teal)", lineHeight: 1 }}>{contentCreator.totalPieces}</span>
-                      <span style={{ fontSize: 10, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>MEDIA ITEMS STORED</span>
-                    </div>
-
-                    {/* Type breakdown with proportional bars */}
-                    {contentCreator.byType.length > 0 && (
-                      <div style={{ marginBottom: 20 }}>
-                        {contentCreator.byType.map(([type, count], i) => {
-                          const max = Math.max(...contentCreator.byType.map(([, c]) => c), 1);
-                          return (
-                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                              <span style={{ fontSize: 10, color: "var(--cream-text)", width: 80, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>{type}</span>
-                              <div style={{ flex: 1, height: 6, background: "var(--cream)", border: "1px solid var(--cream-border)", overflow: "hidden" }}>
-                                <div style={{ width: `${(count / max) * 100}%`, height: "100%", background: "var(--teal)", opacity: 0.5, transformOrigin: "left", animation: `barGrowH 0.6s ${i * 0.1}s ease forwards`, transform: "scaleX(0)" }} />
-                              </div>
-                              <span className="serif" style={{ fontSize: 16, color: "var(--teal)", width: 30, textAlign: "right" }}>{count}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Year mini chart */}
-                    {contentCreator.byYear.length > 1 && (() => {
-                      const data = contentCreator.byYear;
-                      const maxY = Math.max(...data.map(([, c]) => c), 1);
-                      const W = 600, H = 80, pad = 10;
-                      const chartW = W - pad * 2;
-                      return (
-                        <div>
-                          <div style={{ fontSize: 10, letterSpacing: "0.15em", color: "var(--cream-muted)", marginBottom: 8 }}>PUBLISHED BY YEAR</div>
-                          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
-                            {data.map(([year, count], i) => {
-                              const x = pad + (i / (data.length - 1 || 1)) * chartW;
-                              const h = (count / maxY) * 50;
-                              return (
-                                <g key={i}>
-                                  <rect x={x - 12} y={60 - h} width={24} height={h} rx={4} fill="var(--teal)" opacity="0.4"
-                                    style={{ transformOrigin: `${x}px 60px`, animation: `barGrow 0.5s ${i * 0.08}s ease forwards`, transform: "scaleY(0)" }} />
-                                  <text x={x} y={74} textAnchor="middle" fill="var(--cream-muted)" fontSize="7" fontFamily="'Space Mono', monospace">{year.toString().slice(2)}</text>
-                                  {count > 0 && <text x={x} y={60 - h - 4} textAnchor="middle" fill="var(--teal)" fontSize="7" fontFamily="'Space Mono', monospace">{count}</text>}
-                                </g>
-                              );
-                            })}
-                          </svg>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Verifications — Badge Cards ─────────────────────────── */}
-              {verifications && verifications.length > 0 && (
-                <div className="scroll-reveal scroll-reveal-delay-2" style={{ marginBottom: 64 }}>
-                  <SectionLabel color="var(--cream-muted)" icon="verify">IDENTITY VERIFICATIONS</SectionLabel>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {verifications.map((v, i) => {
-                      const isExpired = v.expiry && new Date(v.expiry) < new Date();
-                      const accent = isExpired ? "var(--rose)" : "var(--green)";
-                      return (
-                        <div key={i} className="card" style={{
-                          padding: "16px 20px", borderLeft: `4px solid ${accent}`,
-                          display: "flex", alignItems: "center", gap: 14,
-                          animation: `floatIn 0.4s ${i * 0.1}s ease forwards`, opacity: 0,
-                        }}>
-                          {/* Shield icon */}
-                          <svg width="24" height="28" viewBox="0 0 24 28" fill="none" style={{ flexShrink: 0 }}>
-                            <path d="M12 2L2 7v7c0 6.55 4.27 12.68 10 14.16C17.73 26.68 22 20.55 22 14V7L12 2z" fill={`${accent}11`} stroke={accent} strokeWidth="1.2" />
-                            {!isExpired && <path d="M8 14l3 3 5-5" stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
-                            {isExpired && <><line x1="9" y1="11" x2="15" y2="17" stroke={accent} strokeWidth="1.5" /><line x1="15" y1="11" x2="9" y2="17" stroke={accent} strokeWidth="1.5" /></>}
-                          </svg>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, color: "var(--cream-text)", fontWeight: 700 }}>{v.type || "Identity Verification"}</div>
-                            <div style={{ fontSize: 11, color: "var(--cream-muted)", marginTop: 2 }}>{[v.docType, v.provider, v.org].filter(Boolean).join(" · ")}</div>
-                          </div>
-                          <div style={{ textAlign: "right", flexShrink: 0 }}>
-                            <div style={{ fontSize: 11, color: accent, fontFamily: "'Space Mono', monospace" }}>{isExpired ? "EXPIRED" : "VERIFIED"}</div>
-                            <div style={{ fontSize: 9, color: "var(--cream-muted)", marginTop: 2 }}>{v.date}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Services Marketplace — Service Cards ────────────────── */}
-              {providers && providers.length > 0 && (
-                <div className="scroll-reveal scroll-reveal-delay-3" style={{ marginBottom: 64 }}>
-                  <SectionLabel color="var(--cream-muted)" icon="services">SERVICES MARKETPLACE</SectionLabel>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
-                    {providers.map((p, i) => (
-                      <div key={i} className="card" style={{ padding: "18px 20px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          {/* Storefront icon */}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
-                          </svg>
-                          <span style={{ fontSize: 10, color: "var(--cream-muted)", letterSpacing: "0.1em" }}>SERVICE LISTING</span>
-                          {p.remote === "true" && (
-                            <span style={{ fontSize: 8, padding: "2px 6px", background: "rgba(61,214,200,0.08)", border: "1px solid rgba(61,214,200,0.2)", color: "var(--teal)", marginLeft: "auto" }}>REMOTE</span>
-                          )}
-                        </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                          {(p.category || "").split(";").filter(Boolean).map((cat, j) => (
-                            <span key={j} style={{ padding: "3px 10px", border: "1px solid var(--teal-dim)", fontSize: 10, color: "var(--teal)" }}>{cat.trim()}</span>
-                          ))}
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--cream-muted)" }}>
-                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: p.status === "ACTIVE" || p.status === "Active" ? "var(--green)" : "var(--cream-muted)" }} />
-                            {p.status || "Unknown"}
-                          </span>
-                          {p.created && <span>{p.created}</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Inferences — Weighted Cloud ─────────────────────────── */}
-              {inferences && inferences.length > 0 && (
-                <div className="scroll-reveal" style={{ marginBottom: 64 }}>
-                  <SectionLabel color="var(--cream-muted)" icon="inference">LINKEDIN'S INFERENCES</SectionLabel>
-                  <div className="card" style={{ padding: 24 }}>
-                    <div style={{ fontSize: 13, color: "var(--cream-text)", lineHeight: 1.8, marginBottom: 16 }}>
-                      LinkedIn has drawn <strong style={{ color: "var(--rose)" }}>{inferences.length} inferences</strong> about you based on your activity.
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                      {inferences.map((tag, i) => {
-                        const isHighlight = i % 5 === 0;
-                        return (
-                          <span key={i} style={{
-                            padding: isHighlight ? "5px 14px" : "4px 11px",
-                            border: `1px solid ${isHighlight ? "rgba(232,96,96,0.3)" : "var(--cream-border)"}`,
-                            fontSize: isHighlight ? 12 : 10,
-                            color: isHighlight ? "var(--rose)" : "var(--cream-text)",
-                            background: isHighlight ? "rgba(232,96,96,0.04)" : "transparent",
-                            transition: "all 0.2s ease",
-                            animation: `floatIn 0.3s ${Math.min(i * 0.03, 0.8)}s ease forwards`, opacity: 0,
-                            cursor: "default",
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--rose)"; e.currentTarget.style.background = "rgba(232,96,96,0.06)"; e.currentTarget.style.color = "var(--rose)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = isHighlight ? "rgba(232,96,96,0.3)" : "var(--cream-border)"; e.currentTarget.style.background = isHighlight ? "rgba(232,96,96,0.04)" : "transparent"; e.currentTarget.style.color = isHighlight ? "var(--rose)" : "var(--cream-text)"; }}
-                          >
-                            {tag}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* No data fallback */}
-              {!adTargeting && !inferences && (
-                <div className="scroll-reveal" style={{ marginBottom: 64 }}>
-                  <div className="card" style={{ padding: 24, textAlign: "center" }}>
-                    <div className="serif" style={{ fontSize: 22, marginBottom: 10, color: "var(--cream-text)" }}>Not in your export</div>
-                    <div style={{ fontSize: 13, color: "var(--cream-muted)", lineHeight: 1.8, maxWidth: 400, margin: "0 auto" }}>
-                      Ad targeting data requires the full archive export. It takes 24-48 hrs but reveals exactly how LinkedIn has profiled you.
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      <ChapterDivider />
-
-      {/* ═══════════════════════════════════════════════════════════════════════
-          CHAPTER 5 — YOUR CAREER INTENT (DARK)
+          CHAPTER 4 — YOUR CAREER INTENT (DARK)
           ═══════════════════════════════════════════════════════════════════════ */}
       {hasCareerIntel && (
-        <div className="chapter chapter-dark" ref={ch5Ref}>
-          <ChapterOpener number="05" title={<>Your Career <em style={{ color: "var(--gold)" }}>Intent</em></>} subtitle="Saved jobs, applications, search patterns, and the signals LinkedIn uses to gauge your next move." />
+        <div className="chapter chapter-dark" ref={ch4Ref}>
+          <ChapterOpener number="04" title={<>Your Career <em style={{ color: "var(--gold)" }}>Intent</em></>} subtitle="Saved jobs, applications, search patterns, and the signals that reveal your next move." />
 
           <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px", boxSizing: "border-box" }}>
             {/* Company Bubble Chart */}
