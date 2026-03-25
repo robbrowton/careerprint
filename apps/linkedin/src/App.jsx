@@ -1095,6 +1095,14 @@ export default function App() {
 
   const resetToUpload = useCallback(() => { setStage("upload"); setAnalysed(null); setIsDemo(false); }, []);
 
+  // Auto-load demo from URL parameter
+  const demoLoaded = useRef(false);
+  useEffect(() => {
+    if (demoLoaded.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("demo") === "1") { demoLoaded.current = true; loadDemo(); }
+  }, [loadDemo]);
+
   return (
     <>
       {stage==="upload"    && <Upload onDrop={onDrop} dragOver={dragOver} setDragOver={setDragOver} fileRef={fileRef} process={process} error={error} loadDemo={loadDemo}/>}
@@ -1131,7 +1139,7 @@ function Upload({ onDrop, dragOver, setDragOver, fileRef, process, error, loadDe
           <input ref={fileRef} type="file" accept=".csv,.zip" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(f)process(f);}}/>
         </div>
         <div className="animate-fade-up-3" style={{textAlign:"center",marginBottom:16}}>
-          <button onClick={loadDemo} style={{background:"none",border:"1px solid var(--gold-dim)",color:"var(--gold)",padding:"10px 28px",cursor:"pointer",fontSize:12,letterSpacing:"0.12em",transition:"all 0.2s ease"}}
+          <button onClick={loadDemo} style={{background:"none",border:"1px solid var(--gold-dim)",color:"var(--gold)",padding:"10px 28px",cursor:"pointer",fontSize:12,letterSpacing:"0.12em",fontFamily:"'Space Mono', monospace",transition:"all 0.2s ease"}}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,168,67,0.08)";e.currentTarget.style.borderColor="var(--gold)";}}
             onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.borderColor="var(--gold-dim)";}}>
             SEE A SAMPLE REPORT
@@ -2724,8 +2732,8 @@ function Results({ data, onReset, isDemo }) {
       {/* Demo banner */}
       {isDemo && (
         <div style={{ position: "fixed", top: 38, left: 0, right: 0, zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, padding: "8px 20px", background: "rgba(212,168,67,0.1)", borderBottom: "1px solid rgba(212,168,67,0.2)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
-          <span style={{ fontSize: 11, color: "var(--gold)", letterSpacing: "0.08em" }}>This is a sample report — upload your own data to see yours.</span>
-          <button onClick={onReset} style={{ background: "var(--gold)", color: "var(--bg)", border: "none", padding: "4px 14px", cursor: "pointer", fontSize: 10, letterSpacing: "0.1em", fontWeight: 600 }}>UPLOAD YOUR DATA</button>
+          <span style={{ fontSize: 11, color: "var(--gold)", letterSpacing: "0.08em", fontFamily: "'Space Mono', monospace" }}>This is a sample report — upload your own data to see yours.</span>
+          <button onClick={resetToUpload} style={{ background: "var(--gold)", color: "var(--bg)", border: "none", padding: "4px 14px", cursor: "pointer", fontSize: 10, letterSpacing: "0.1em", fontWeight: 600, fontFamily: "'Space Mono', monospace" }}>UPLOAD YOUR DATA</button>
         </div>
       )}
 

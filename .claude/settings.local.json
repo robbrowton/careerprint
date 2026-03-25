@@ -24,7 +24,24 @@
       "mcp__claude_ai_Vercel__deploy_to_vercel",
       "mcp__claude_ai_Vercel__list_teams",
       "mcp__claude_ai_Vercel__list_projects",
-      "mcp__claude_ai_Vercel__list_deployments"
+      "mcp__claude_ai_Vercel__list_deployments",
+      "Bash(head:*)",
+      "Bash(pnpm -F @consulting/charts exec tsc --noEmit)",
+      "Bash(node_modules/.pnpm/ts-api-utils@2.4.0_typescript@5.9.3/node_modules/ts-api-utils/node_modules/.bin/tsc --noEmit -p packages/charts/tsconfig.json)",
+      "Bash(kill %1)",
+      "Bash(xargs kill:*)",
+      "Bash(gh api:*)",
+      "Bash(ps:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm remove:*)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)",
+      "Bash(pnpm --version)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm:*)",
+      "Bash(echo \"PAPERCLIP_API_URL: $PAPERCLIP_API_URL\")",
+      "Bash(echo \"PAPERCLIP_AGENT_ID: $PAPERCLIP_AGENT_ID\")",
+      "Bash(echo \"PAPERCLIP_COMPANY_ID: $PAPERCLIP_COMPANY_ID\")"
     ]
   }
 }
