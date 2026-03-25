@@ -2733,7 +2733,7 @@ function Results({ data, onReset, isDemo }) {
       {isDemo && (
         <div style={{ position: "fixed", top: 38, left: 0, right: 0, zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, padding: "8px 20px", background: "rgba(212,168,67,0.1)", borderBottom: "1px solid rgba(212,168,67,0.2)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
           <span style={{ fontSize: 11, color: "var(--gold)", letterSpacing: "0.08em", fontFamily: "'Space Mono', monospace" }}>This is a sample report — upload your own data to see yours.</span>
-          <button onClick={resetToUpload} style={{ background: "var(--gold)", color: "var(--bg)", border: "none", padding: "4px 14px", cursor: "pointer", fontSize: 10, letterSpacing: "0.1em", fontWeight: 600, fontFamily: "'Space Mono', monospace" }}>UPLOAD YOUR DATA</button>
+          <button onClick={onReset} style={{ background: "var(--gold)", color: "var(--bg)", border: "none", padding: "4px 14px", cursor: "pointer", fontSize: 10, letterSpacing: "0.1em", fontWeight: 600, fontFamily: "'Space Mono', monospace" }}>UPLOAD YOUR DATA</button>
         </div>
       )}
 
