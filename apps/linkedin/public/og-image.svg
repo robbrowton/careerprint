@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#050508"/>
+      <stop offset="100%" stop-color="#0a0a10"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(212,168,67,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <ellipse cx="600" cy="315" rx="500" ry="300" fill="url(#glow)"/>
+
+  <!-- Fingerprint icon -->
+  <g transform="translate(540, 120) scale(3)">
+    <path d="M16 6 Q8 11 8 18 Q8 26 16 28" fill="none" stroke="#d4a843" stroke-width="2" stroke-linecap="round"/>
+    <path d="M16 6 Q24 11 24 18 Q24 26 16 28" fill="none" stroke="#5ba4b5" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+    <path d="M16 10 Q11.5 14 11.5 18 Q11.5 23 16 25" fill="none" stroke="#d4a843" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    <path d="M16 10 Q20.5 14 20.5 18 Q20.5 23 16 25" fill="none" stroke="#5ba4b5" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+    <line x1="16" y1="9" x2="16" y2="26" stroke="#d4a843" stroke-width="1" opacity="0.3"/>
+  </g>
+
+  <!-- Brand name -->
+  <text x="600" y="310" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="11" letter-spacing="8" fill="#d4a843">CAREERPRINT.AI</text>
+
+  <!-- Headline -->
+  <text x="600" y="370" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="48" fill="#e8e0d4" font-weight="400">Your career has a fingerprint.</text>
+
+  <!-- Tagline -->
+  <text x="600" y="420" text-anchor="middle" font-family="'Courier New', monospace" font-size="16" fill="#888" letter-spacing="2">DISCOVER WHAT YOUR LINKEDIN NETWORK REALLY SAYS ABOUT YOU</text>
+
+  <!-- Bottom bar -->
+  <line x1="480" y1="460" x2="720" y2="460" stroke="#d4a843" stroke-width="1" opacity="0.3"/>
+
+  <!-- Features -->
+  <text x="600" y="500" text-anchor="middle" font-family="'Courier New', monospace" font-size="13" fill="#666" letter-spacing="1">FREE  |  PRIVATE  |  RUNS IN YOUR BROWSER</text>
+
+  <!-- Border accent -->
+  <rect x="0" y="0" width="1200" height="2" fill="#d4a843" opacity="0.4"/>
+  <rect x="0" y="628" width="1200" height="2" fill="#d4a843" opacity="0.4"/>
+</svg>

@@ -941,6 +941,35 @@ async function processZip(file) {
   return result;
 }
 
+// ─── Shared analysis pipeline ────────────────────────────────────────────────
+function analyseAllFiles(files) {
+  return {
+    connections: analyseConnections(files.connections),
+    messages:    files.messages    ? analyseMessages(files.messages)  : null,
+    invitations: files.invitations ? analyseInvitations(files.invitations) : null,
+    skills:      (files.skills || files.endorsements) ? analyseSkills(files.skills, files.endorsements) : null,
+    profile:     files.profile?.[0] || null,
+    positions:   files.positions || null,
+    education:   files.education || null,
+    certifications: files.certifications || null,
+    recsReceived: files.recsReceived || null,
+    recsGiven:   files.recsGiven || null,
+    learning:    files.learning ? analyseLearning(files.learning) : null,
+    endorsementReciprocity: analyseEndorsementReciprocity(files.endorsementsGiven, files.endorsements),
+    silentNetwork: analyseSilentNetwork(files.connections, files.messages),
+    careerIntent: analyseCareerIntent(files.savedJobs, files.jobApplications, files.savedJobAlerts),
+    contentCreator: analyseContentCreator(files.richMedia),
+    registration: files.registration?.[0] || null,
+    companyFollows: analyseCompanyFollows(files.companyFollows, files.savedJobs),
+    events: analyseEvents(files.events),
+    jobSeekerPrefs: analyseJobSeekerPrefs(files.jobSeekerPrefs),
+    articles: analyseArticles(files.articles),
+    verifications: analyseVerifications(files.verifications),
+    jobPostings: files.jobPostings || null,
+    filesFound:  Object.keys(files),
+  };
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 // ─── Error Boundary ──────────────────────────────────────────────────────────
 class ReportErrorBoundary extends Component {
@@ -988,6 +1017,7 @@ export default function App() {
   const [analysed, setAnalysed] = useState(null);
   const [error, setError]   = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
   const fileRef = useRef();
 
   useEffect(()=>{
@@ -1025,31 +1055,7 @@ export default function App() {
       }
       if (!files.connections || files.connections.length < 5) throw new Error("Too few connections found. Make sure this is your Connections.csv.");
       await new Promise(r=>setTimeout(r,2000));
-      setAnalysed({
-        connections: analyseConnections(files.connections),
-        messages:    files.messages    ? analyseMessages(files.messages)  : null,
-        invitations: files.invitations ? analyseInvitations(files.invitations) : null,
-        skills:      (files.skills || files.endorsements) ? analyseSkills(files.skills, files.endorsements) : null,
-        profile:     files.profile?.[0] || null,
-        positions:   files.positions || null,
-        education:   files.education || null,
-        certifications: files.certifications || null,
-        recsReceived: files.recsReceived || null,
-        recsGiven:   files.recsGiven || null,
-        learning:    files.learning ? analyseLearning(files.learning) : null,
-        endorsementReciprocity: analyseEndorsementReciprocity(files.endorsementsGiven, files.endorsements),
-        silentNetwork: analyseSilentNetwork(files.connections, files.messages),
-        careerIntent: analyseCareerIntent(files.savedJobs, files.jobApplications, files.savedJobAlerts),
-        contentCreator: analyseContentCreator(files.richMedia),
-        registration: files.registration?.[0] || null,
-        companyFollows: analyseCompanyFollows(files.companyFollows, files.savedJobs),
-        events: analyseEvents(files.events),
-        jobSeekerPrefs: analyseJobSeekerPrefs(files.jobSeekerPrefs),
-        articles: analyseArticles(files.articles),
-        verifications: analyseVerifications(files.verifications),
-        jobPostings: files.jobPostings || null,
-        filesFound:  Object.keys(files),
-      });
+      setAnalysed(analyseAllFiles(files));
       setStage("results");
     } catch(e) {
       const msg = e.message || "Unknown error";
@@ -1065,22 +1071,41 @@ export default function App() {
     }
   },[]);
 
+  const loadDemo = useCallback(async () => {
+    setError(""); setStage("analysing"); setIsDemo(true);
+    try {
+      const res = await fetch("/demo-data.json");
+      if (!res.ok) throw new Error("Could not load demo data.");
+      const files = await res.json();
+      if (!files.connections || files.connections.length < 5) throw new Error("Demo data is incomplete.");
+      await new Promise(r => setTimeout(r, 2000));
+      setAnalysed(analyseAllFiles(files));
+      setStage("results");
+    } catch (e) {
+      setError(e.message || "Failed to load demo.");
+      setIsDemo(false);
+      setStage("upload");
+    }
+  }, []);
+
   const onDrop = useCallback(e=>{
     e.preventDefault(); setDragOver(false);
     const f=e.dataTransfer.files[0]; if(f) process(f);
   },[process]);
 
+  const resetToUpload = useCallback(() => { setStage("upload"); setAnalysed(null); setIsDemo(false); }, []);
+
   return (
     <>
-      {stage==="upload"    && <Upload onDrop={onDrop} dragOver={dragOver} setDragOver={setDragOver} fileRef={fileRef} process={process} error={error}/>}
+      {stage==="upload"    && <Upload onDrop={onDrop} dragOver={dragOver} setDragOver={setDragOver} fileRef={fileRef} process={process} error={error} loadDemo={loadDemo}/>}
       {stage==="analysing" && <Analysing/>}
-      {stage==="results"   && analysed && <ReportErrorBoundary onReset={()=>{setStage("upload");setAnalysed(null);}}><Results data={analysed} onReset={()=>{setStage("upload");setAnalysed(null);}}/></ReportErrorBoundary>}
+      {stage==="results"   && analysed && <ReportErrorBoundary onReset={resetToUpload}><Results data={analysed} onReset={resetToUpload} isDemo={isDemo}/></ReportErrorBoundary>}
     </>
   );
 }
 
 // ─── Upload ───────────────────────────────────────────────────────────────────
-function Upload({ onDrop, dragOver, setDragOver, fileRef, process, error }) {
+function Upload({ onDrop, dragOver, setDragOver, fileRef, process, error, loadDemo }) {
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",justifyContent:"center",padding:"40px 24px",maxWidth:680,margin:"0 auto"}}>
       <div style={{position:"fixed",inset:0,zIndex:0,overflow:"hidden",pointerEvents:"none"}}>
@@ -1104,6 +1129,13 @@ function Upload({ onDrop, dragOver, setDragOver, fileRef, process, error }) {
           <div className="serif" style={{fontSize: 22,marginBottom:6}}>Drop your export here</div>
           <div style={{fontSize: 11,color:"var(--muted)",letterSpacing:"0.15em"}}>CONNECTIONS.CSV · OR FULL ZIP ARCHIVE</div>
           <input ref={fileRef} type="file" accept=".csv,.zip" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(f)process(f);}}/>
+        </div>
+        <div className="animate-fade-up-3" style={{textAlign:"center",marginBottom:16}}>
+          <button onClick={loadDemo} style={{background:"none",border:"1px solid var(--gold-dim)",color:"var(--gold)",padding:"10px 28px",cursor:"pointer",fontSize:12,letterSpacing:"0.12em",transition:"all 0.2s ease"}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(212,168,67,0.08)";e.currentTarget.style.borderColor="var(--gold)";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="none";e.currentTarget.style.borderColor="var(--gold-dim)";}}>
+            SEE A SAMPLE REPORT
+          </button>
         </div>
         {error && <div style={{padding:"12px 16px",background:"rgba(232,96,96,0.08)",border:"1px solid rgba(232,96,96,0.25)",color:"var(--rose)",fontSize: 13,marginBottom:16,lineHeight:1.6}}>{error}</div>}
         <div className="card animate-fade-up-4" style={{padding:24,marginBottom:16}}>
@@ -2428,7 +2460,7 @@ function SectionLabel({ children, color, icon }) {
 
 // ─── Results ──────────────────────────────────────────────────────────────────
 
-function Results({ data, onReset }) {
+function Results({ data, onReset, isDemo }) {
   const { connections: c, messages, invitations, skills, profile, positions, education, certifications, recsReceived, recsGiven, learning, endorsementReciprocity, silentNetwork, careerIntent, contentCreator, registration, companyFollows, events, jobSeekerPrefs, articles, verifications, filesFound } = data;
   const hasCareerIntel = (careerIntent && (careerIntent.savedCount > 0 || careerIntent.appliedCount > 0)) || jobSeekerPrefs || companyFollows;
 
@@ -2689,10 +2721,18 @@ function Results({ data, onReset }) {
         </div>
       </div>
 
+      {/* Demo banner */}
+      {isDemo && (
+        <div style={{ position: "fixed", top: 38, left: 0, right: 0, zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, padding: "8px 20px", background: "rgba(212,168,67,0.1)", borderBottom: "1px solid rgba(212,168,67,0.2)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}>
+          <span style={{ fontSize: 11, color: "var(--gold)", letterSpacing: "0.08em" }}>This is a sample report — upload your own data to see yours.</span>
+          <button onClick={onReset} style={{ background: "var(--gold)", color: "var(--bg)", border: "none", padding: "4px 14px", cursor: "pointer", fontSize: 10, letterSpacing: "0.1em", fontWeight: 600 }}>UPLOAD YOUR DATA</button>
+        </div>
+      )}
+
       {/* ═══════════════════════════════════════════════════════════════════════
           CHAPTER 1 — YOUR NETWORK AT A GLANCE (DARK)
           ═══════════════════════════════════════════════════════════════════════ */}
-      <div className="chapter chapter-dark" ref={ch1Ref} style={{ paddingTop: 40 }}>
+      <div className="chapter chapter-dark" ref={ch1Ref} style={{ paddingTop: isDemo ? 72 : 40 }}>
         <ChapterOpener number="01" title={<>Your Network at a <em style={{ color: "var(--gold)" }}>Glance</em></>} subtitle={`${c.total.toLocaleString()} connections across ${c.networkAge} year${c.networkAge !== 1 ? "s" : ""} — ${filesFound.length} file${filesFound.length !== 1 ? "s" : ""} analysed`} />
 
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px", boxSizing: "border-box" }}>
